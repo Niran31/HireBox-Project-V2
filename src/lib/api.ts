@@ -88,6 +88,26 @@ export interface ApiReport {
   }[]
 }
 
+export interface ApiInterview {
+  id: string | number
+  candidateId: string | number
+  candidateName: string
+  jobId: string | number
+  jobTitle: string
+  token: string
+  status: "Pending" | "In Progress" | "Completed" | "Suspended"
+  score?: number
+  created: string
+  proctorFlagsCount?: number
+}
+
+export interface ApiAnalytics {
+  dropOffFunnel: { stage: string; count: number; percentage: number }[]
+  scoreDistribution: { label: string; count: number }[]
+  integrityBreakdown: { label: string; count: number; color: string }[]
+  departmentAverages: { department: string; avgScore: number; candidatesCount: number }[]
+}
+
 // Fetch wrapper with JWT injection and error handling
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`}`
@@ -207,5 +227,14 @@ export const api = {
   // Scorecards & Reports Endpoints
   getReport: (interviewId: string | number) => {
     return fetchAPI<ApiReport>(`/reports/${interviewId}`)
+  },
+
+  // Recruiter Interviews & Analytics
+  getInterviews: () => {
+    return fetchAPI<ApiInterview[]>("/interviews")
+  },
+
+  getAnalytics: () => {
+    return fetchAPI<ApiAnalytics>("/analytics")
   }
 }

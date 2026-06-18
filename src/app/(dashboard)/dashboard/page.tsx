@@ -8,6 +8,13 @@ import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import {
+  MOCK_STATS,
+  MOCK_PIPELINE,
+  MOCK_JOBS,
+  MOCK_CANDIDATES,
+  MOCK_ACTIVITIES
+} from "@/lib/mock-data"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -68,14 +75,15 @@ const getActivityIconColor = (type: string) => {
 export default function DashboardPage() {
   const [activeStage, setActiveStage] = useState<string | null>(null)
 
-  // React Queries fetching from Flask API
+  // React Queries fetching from Flask API (with retry disabled on dev to allow fast fallbacks)
   const { 
     data: stats, 
     isLoading: isStatsLoading, 
     isError: isStatsError 
   } = useQuery({ 
     queryKey: ["dashboardStats"], 
-    queryFn: api.getDashboardStats 
+    queryFn: api.getDashboardStats,
+    retry: false
   })
 
   const { 
@@ -83,7 +91,8 @@ export default function DashboardPage() {
     isLoading: isCandidatesLoading 
   } = useQuery({ 
     queryKey: ["candidates"], 
-    queryFn: () => api.getCandidates() 
+    queryFn: () => api.getCandidates(),
+    retry: false
   })
 
   const { 
@@ -91,7 +100,8 @@ export default function DashboardPage() {
     isLoading: isJobsLoading 
   } = useQuery({ 
     queryKey: ["jobs"], 
-    queryFn: api.getJobs 
+    queryFn: api.getJobs,
+    retry: false
   })
 
   // Toast notifications for connection errors
@@ -103,9 +113,16 @@ export default function DashboardPage() {
     }
   }, [isStatsError])
 
-  const isLoading = isStatsLoading || isCandidatesLoading || isJobsLoading
+  // Only show loading skeleton if we are actively fetching and don't have an error fallback ready
+  const isLoading = (isStatsLoading || isCandidatesLoading || isJobsLoading) && !isStatsError
 
-  // Map stats dynamically
+  // Fallback data mapping if Flask is down
+  const displayJobs = jobs && jobs.length > 0 ? jobs : MOCK_JOBS
+  const displayCandidates = candidates && candidates.length > 0 ? candidates : MOCK_CANDIDATES
+  const displayActivities = stats && stats.recentActivities ? stats.recentActivities : MOCK_ACTIVITIES
+  const displayPipeline = stats && stats.pipeline ? stats.pipeline : MOCK_PIPELINE
+
+  // Map stats dynamically, with mock fallback if backend is down
   const statsList = stats ? [
     {
       id: "active-jobs",
@@ -139,11 +156,44 @@ export default function DashboardPage() {
       icon: "TrendingUp",
       color: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/45",
     },
-  ] : []
+  ] : [
+    {
+      id: "active-jobs",
+      label: "Active Jobs",
+      value: MOCK_JOBS.filter(j => j.status === "Active").length,
+      trend: "Positions actively hiring",
+      icon: "Briefcase",
+      color: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/45",
+    },
+    {
+      id: "total-candidates",
+      label: "Total Candidates",
+      value: MOCK_CANDIDATES.length,
+      trend: "Across all active openings",
+      icon: "Users",
+      color: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/45",
+    },
+    {
+      id: "interviews-today",
+      label: "Interviews Completed",
+      value: MOCK_CANDIDATES.filter(c => c.interviewStatus === "Completed").length,
+      trend: "Completed AI sessions",
+      icon: "Video",
+      color: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/45",
+    },
+    {
+      id: "avg-hire-score",
+      label: "Avg. Screening Score",
+      value: "84%",
+      trend: "AI scorecard average",
+      icon: "TrendingUp",
+      color: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/45",
+    },
+  ]
 
   // Filter candidates based on selected stage
-  const filteredCandidates = activeStage && candidates
-    ? candidates.filter(c => c.stage === activeStage)
+  const filteredCandidates = activeStage
+    ? displayCandidates.filter(c => c.stage === activeStage)
     : []
 
   // Loading Screen Skeleton Layout
@@ -216,44 +266,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Hiring Pipeline Funnel Layout */}
-      {stats && stats.pipeline && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm dark:bg-slate-900">
-          <div className="mb-4">
-            <h3 className="text-lg font-bold tracking-tight">Hiring Pipeline</h3>
-            <p className="text-sm text-brand-muted-text">Click any stage to filter candidate details below.</p>
-          </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {stats.pipeline.map((step, idx) => {
-              const isSelected = activeStage === step.stage
-              return (
-                <div key={step.stage} className="relative flex items-center">
-                  <button
-                    onClick={() => setActiveStage(isSelected ? null : step.stage)}
-                    className={`flex-1 flex flex-col p-4 rounded-xl border transition-all cursor-pointer text-left hover:scale-[1.02] ${
-                      isSelected 
-                        ? "border-brand-primary bg-brand-primary-bg dark:bg-brand-card-dark text-brand-primary shadow-sm"
-                        : "border-border bg-background/50 text-foreground hover:bg-accent/40"
-                    }`}
-                  >
-                    <span className="text-2xl font-black">{step.count}</span>
-                    <span className="text-xs font-bold mt-1 truncate">{step.stage}</span>
-                    <span className="text-[10px] text-brand-muted-text leading-tight mt-0.5 line-clamp-1">
-                      {step.description}
-                    </span>
-                  </button>
-
-                  {idx < 4 && (
-                    <div className="hidden lg:flex items-center justify-center absolute -right-3.5 z-10 w-3 h-3 text-brand-muted-text/60">
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm dark:bg-slate-900">
+        <div className="mb-4">
+          <h3 className="text-lg font-bold tracking-tight">Hiring Pipeline</h3>
+          <p className="text-sm text-brand-muted-text">Click any stage to filter candidate details below.</p>
         </div>
-      )}
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          {displayPipeline.map((step, idx) => {
+            const isSelected = activeStage === step.stage
+            return (
+              <div key={step.stage} className="relative flex items-center">
+                <button
+                  onClick={() => setActiveStage(isSelected ? null : step.stage)}
+                  className={`flex-1 flex flex-col p-4 rounded-xl border transition-all cursor-pointer text-left hover:scale-[1.02] ${
+                    isSelected 
+                      ? "border-brand-primary bg-brand-primary-bg dark:bg-brand-card-dark text-brand-primary shadow-sm"
+                      : "border-border bg-background/50 text-foreground hover:bg-accent/40"
+                  }`}
+                >
+                  <span className="text-2xl font-black">{step.count}</span>
+                  <span className="text-xs font-bold mt-1 truncate">{step.stage}</span>
+                  <span className="text-[10px] text-brand-muted-text leading-tight mt-0.5 line-clamp-1">
+                    {step.description}
+                  </span>
+                </button>
+
+                {idx < 4 && (
+                  <div className="hidden lg:flex items-center justify-center absolute -right-3.5 z-10 w-3 h-3 text-brand-muted-text/60">
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Main Grid: Dashboard content / Activities */}
       <div className="grid gap-6 lg:grid-cols-12">
@@ -332,69 +380,67 @@ export default function DashboardPage() {
                   </table>
                 )
               ) : (
-                jobs && (
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border/40 text-xs text-brand-muted-text font-bold uppercase">
-                        <th className="pb-3">Job Title</th>
-                        <th className="pb-3 text-right">Candidates</th>
-                        <th className="pb-3 text-right">Top Score</th>
-                        <th className="pb-3 text-right">Status</th>
-                        <th className="pb-3 text-right">Created</th>
-                        <th className="pb-3 text-right">Actions</th>
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/40 text-xs text-brand-muted-text font-bold uppercase">
+                      <th className="pb-3">Job Title</th>
+                      <th className="pb-3 text-right">Candidates</th>
+                      <th className="pb-3 text-right">Top Score</th>
+                      <th className="pb-3 text-right">Status</th>
+                      <th className="pb-3 text-right">Created</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30 text-sm">
+                    {displayJobs.map((job, index) => (
+                      <tr 
+                        key={job.id} 
+                        className={cn(
+                          "hover:bg-accent/10 transition-colors",
+                          index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                        )}
+                      >
+                        <td className="py-3.5 font-semibold text-foreground">{job.title}</td>
+                        <td className="py-3.5 text-right font-medium">{job.candidates}</td>
+                        <td className="py-3.5 text-right text-brand-primary font-bold">{job.topScore}%</td>
+                        <td className="py-3.5 text-right">
+                          <span className={cn(
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold",
+                            job.status === "Active" ? "bg-emerald-100 text-brand-success dark:bg-emerald-950/40" :
+                            job.status === "Draft" ? "bg-amber-100 text-brand-warning dark:bg-amber-950/40" :
+                            "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                          )}>
+                            {job.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right text-brand-muted-text">{job.created}</td>
+                        <td className="py-3.5 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 rounded-md text-brand-muted-text hover:bg-accent hover:text-foreground cursor-pointer">
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40 bg-white dark:bg-slate-900 border border-border">
+                              <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
+                                <Link href="/candidates" className="flex items-center gap-2 w-full">
+                                  <Eye className="h-3.5 w-3.5" />
+                                  <span>View Pipeline</span>
+                                  </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
+                                <Link href="/jobs" className="flex items-center gap-2 w-full">
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                  <span>Edit Details</span>
+                                </Link>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30 text-sm">
-                      {jobs.map((job, index) => (
-                        <tr 
-                          key={job.id} 
-                          className={cn(
-                            "hover:bg-accent/10 transition-colors",
-                            index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
-                          )}
-                        >
-                          <td className="py-3.5 font-semibold text-foreground">{job.title}</td>
-                          <td className="py-3.5 text-right font-medium">{job.candidates}</td>
-                          <td className="py-3.5 text-right text-brand-primary font-bold">{job.topScore}%</td>
-                          <td className="py-3.5 text-right">
-                            <span className={cn(
-                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold",
-                              job.status === "Active" ? "bg-emerald-100 text-brand-success dark:bg-emerald-950/40" :
-                              job.status === "Draft" ? "bg-amber-100 text-brand-warning dark:bg-amber-950/40" :
-                              "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                            )}>
-                              {job.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 text-right text-brand-muted-text">{job.created}</td>
-                          <td className="py-3.5 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="p-1 rounded-md text-brand-muted-text hover:bg-accent hover:text-foreground cursor-pointer">
-                                  <MoreVertical className="h-4 w-4" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40 bg-white dark:bg-slate-900 border border-border">
-                                <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
-                                  <Link href="/candidates" className="flex items-center gap-2 w-full">
-                                    <Eye className="h-3.5 w-3.5" />
-                                    <span>View Pipeline</span>
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
-                                  <Link href="/jobs" className="flex items-center gap-2 w-full">
-                                    <Edit3 className="h-3.5 w-3.5" />
-                                    <span>Edit Details</span>
-                                  </Link>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
@@ -408,43 +454,41 @@ export default function DashboardPage() {
               <p className="text-sm text-brand-muted-text">Timeline of candidate and platform activities.</p>
             </div>
 
-            {stats && stats.recentActivities && (
-              <div className="flow-root">
-                <ul className="-mb-8">
-                  {stats.recentActivities.map((activity, activityIdx) => {
-                    const Icon = getActivityIcon(activity.type)
-                    const iconColor = getActivityIconColor(activity.type)
-                    return (
-                      <li key={activity.id}>
-                        <div className="relative pb-6">
-                          {activityIdx !== stats.recentActivities.length - 1 ? (
-                            <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-border/50" aria-hidden="true" />
-                          ) : null}
-                          
-                          <div className="relative flex space-x-3">
+            <div className="flow-root">
+              <ul className="-mb-8">
+                {displayActivities.map((activity, activityIdx) => {
+                  const Icon = getActivityIcon(activity.type)
+                  const iconColor = getActivityIconColor(activity.type)
+                  return (
+                    <li key={activity.id}>
+                      <div className="relative pb-6">
+                        {activityIdx !== displayActivities.length - 1 ? (
+                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-border/50" aria-hidden="true" />
+                        ) : null}
+                        
+                        <div className="relative flex space-x-3">
+                          <div>
+                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 ${iconColor}`}>
+                              <Icon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
                             <div>
-                              <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-slate-900 ${iconColor}`}>
-                                <Icon className="h-4 w-4" aria-hidden="true" />
-                              </span>
+                              <p className="text-xs font-medium text-foreground">
+                                {activity.text}
+                              </p>
                             </div>
-                            <div className="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                              <div>
-                                <p className="text-xs font-medium text-foreground">
-                                  {activity.text}
-                                </p>
-                              </div>
-                              <div className="text-right text-[10px] text-brand-muted-text whitespace-nowrap">
-                                <time dateTime={activity.time}>{activity.time}</time>
-                              </div>
+                            <div className="text-right text-[10px] text-brand-muted-text whitespace-nowrap">
+                              <time dateTime={activity.time}>{activity.time}</time>
                             </div>
                           </div>
                         </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           </div>
         </div>
 
