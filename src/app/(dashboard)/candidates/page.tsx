@@ -396,8 +396,15 @@ export default function CandidatesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30 text-sm">
-                {filteredCandidates.map((cand) => (
-                  <tr key={cand.id} className="hover:bg-accent/10 transition-colors cursor-pointer" onClick={() => viewDetail(cand)}>
+                {filteredCandidates.map((cand, index) => (
+                  <tr 
+                    key={cand.id} 
+                    className={cn(
+                      "hover:bg-accent/10 transition-colors cursor-pointer",
+                      index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                    )}
+                    onClick={() => viewDetail(cand)}
+                  >
                     <td className="py-3.5 font-semibold text-foreground">{cand.name}</td>
                     <td className="py-3.5 text-brand-muted-text">{cand.role}</td>
                     <td className="py-3.5 text-right font-bold text-brand-primary">{cand.score}%</td>

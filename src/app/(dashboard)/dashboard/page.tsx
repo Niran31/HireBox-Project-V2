@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   MOCK_STATS, 
@@ -253,8 +254,14 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30 text-sm">
-                      {filteredCandidates.map((cand) => (
-                        <tr key={cand.id} className="hover:bg-accent/10 transition-colors">
+                      {filteredCandidates.map((cand, index) => (
+                        <tr 
+                          key={cand.id} 
+                          className={cn(
+                            "hover:bg-accent/10 transition-colors",
+                            index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                          )}
+                        >
                           <td className="py-3.5 font-semibold">{cand.name}</td>
                           <td className="py-3.5 text-brand-muted-text">{cand.role}</td>
                           <td className="py-3.5 text-right font-bold text-brand-primary">{cand.score}%</td>
@@ -288,8 +295,14 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30 text-sm">
-                    {MOCK_JOBS.map((job) => (
-                      <tr key={job.id} className="hover:bg-accent/10 transition-colors">
+                    {MOCK_JOBS.map((job, index) => (
+                      <tr 
+                        key={job.id} 
+                        className={cn(
+                          "hover:bg-accent/10 transition-colors",
+                          index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                        )}
+                      >
                         <td className="py-3.5 font-semibold text-foreground">{job.title}</td>
                         <td className="py-3.5 text-right font-medium">{job.candidates}</td>
                         <td className="py-3.5 text-right text-brand-primary font-bold">{job.topScore}%</td>
