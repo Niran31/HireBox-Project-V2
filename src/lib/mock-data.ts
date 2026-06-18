@@ -5,6 +5,20 @@ export interface Job {
   topScore: number
   status: "Active" | "Closed" | "Draft"
   created: string
+  department: "Engineering" | "Design" | "Marketing" | "Sales" | "HR" | "Finance" | "Other"
+  location: string
+  type: "Full-time" | "Part-time" | "Contract" | "Remote"
+  salaryMin?: number
+  salaryMax?: number
+  currency?: string
+  description?: string
+  requiredSkills?: string[]
+  niceToHaveSkills?: string[]
+  experienceLevel?: "Entry" | "Mid" | "Senior" | "Lead"
+  questionCount?: number
+  questionTypes?: string[]
+  timeLimit?: number
+  proctoringEnabled?: boolean
 }
 
 export interface Candidate {
@@ -95,6 +109,20 @@ export const MOCK_JOBS: Job[] = [
     topScore: 94,
     status: "Active",
     created: "2026-06-10",
+    department: "Engineering",
+    location: "San Francisco, CA",
+    type: "Full-time",
+    salaryMin: 120000,
+    salaryMax: 160000,
+    currency: "USD",
+    description: "We are looking for a Senior Fullstack Engineer to lead our frontend and backend engineering efforts. You will work on Next.js, React, Node.js, and Postgres.",
+    requiredSkills: ["React", "TypeScript", "Node.js", "PostgreSQL"],
+    niceToHaveSkills: ["Docker", "AWS", "GraphQL"],
+    experienceLevel: "Senior",
+    questionCount: 8,
+    questionTypes: ["Technical", "Behavioral"],
+    timeLimit: 15,
+    proctoringEnabled: true
   },
   {
     id: "job-2",
@@ -103,6 +131,20 @@ export const MOCK_JOBS: Job[] = [
     topScore: 88,
     status: "Active",
     created: "2026-06-12",
+    department: "Engineering",
+    location: "Remote (US/Canada)",
+    type: "Remote",
+    salaryMin: 130000,
+    salaryMax: 170000,
+    currency: "USD",
+    description: "Manage AWS deployments, Terraform scriptings, and Kubernetes containers. Optimize CI/CD pipelines.",
+    requiredSkills: ["AWS", "Terraform", "Kubernetes", "Docker"],
+    niceToHaveSkills: ["Ansible", "Jenkins", "Python"],
+    experienceLevel: "Lead",
+    questionCount: 6,
+    questionTypes: ["Technical", "Situational"],
+    timeLimit: 10,
+    proctoringEnabled: true
   },
   {
     id: "job-3",
@@ -111,6 +153,20 @@ export const MOCK_JOBS: Job[] = [
     topScore: 96,
     status: "Active",
     created: "2026-06-14",
+    department: "Design",
+    location: "New York, NY",
+    type: "Full-time",
+    salaryMin: 110000,
+    salaryMax: 150000,
+    currency: "USD",
+    description: "Lead UI/UX Designer to establish design system tokens, wireframes, figma mockups, and run user testing sessions.",
+    requiredSkills: ["Figma", "User Research", "Wireframing", "Interaction Design"],
+    niceToHaveSkills: ["Adobe Illustrator", "HTML/CSS"],
+    experienceLevel: "Lead",
+    questionCount: 5,
+    questionTypes: ["Behavioral", "Culture Fit"],
+    timeLimit: 10,
+    proctoringEnabled: false
   },
   {
     id: "job-4",
@@ -119,6 +175,20 @@ export const MOCK_JOBS: Job[] = [
     topScore: 78,
     status: "Draft",
     created: "2026-06-17",
+    department: "Engineering",
+    location: "San Francisco, CA",
+    type: "Full-time",
+    salaryMin: 140000,
+    salaryMax: 190000,
+    currency: "USD",
+    description: "Orchestrate product roadmaps, lead agile ceremonies, write user stories, and track product analytics.",
+    requiredSkills: ["Product Roadmap", "Agile", "User Stories", "Analytics"],
+    niceToHaveSkills: ["SQL", "Jira", "Mixpanel"],
+    experienceLevel: "Senior",
+    questionCount: 10,
+    questionTypes: ["Behavioral", "Situational", "Culture Fit"],
+    timeLimit: 20,
+    proctoringEnabled: true
   },
   {
     id: "job-5",
@@ -127,6 +197,20 @@ export const MOCK_JOBS: Job[] = [
     topScore: 82,
     status: "Closed",
     created: "2026-05-20",
+    department: "Engineering",
+    location: "Austin, TX",
+    type: "Contract",
+    salaryMin: 90,
+    salaryMax: 120,
+    currency: "USD",
+    description: "Write automated tests using Cypress, Playwright, Selenium, and Python. Execute regression runs.",
+    requiredSkills: ["Playwright", "Cypress", "Selenium", "JavaScript"],
+    niceToHaveSkills: ["CI/CD", "Load Testing", "Python"],
+    experienceLevel: "Senior",
+    questionCount: 8,
+    questionTypes: ["Technical", "Situational"],
+    timeLimit: 15,
+    proctoringEnabled: true
   },
 ]
 
