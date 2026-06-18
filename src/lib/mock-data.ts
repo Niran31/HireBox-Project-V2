@@ -9,12 +9,18 @@ export interface Job {
 
 export interface Candidate {
   id: string
+  jobId: string
   name: string
   role: string
-  score: number
-  stage: "Applied" | "Screened" | "Interview Sent" | "Interviewed" | "Decision"
-  date: string
+  score: number // Resume match score (0-100)
+  stage: "Applied" | "Screened" | "Interview" | "Offer" | "Hired" | "Rejected"
+  date: string // Applied date
   status: "Strong Hire" | "Consider" | "Not Recommended" | "Pending"
+  interviewStatus: "Pending" | "Completed" | "Suspended"
+  interviewScore?: number
+  email: string
+  phone: string
+  skills: string[]
 }
 
 export interface Activity {
@@ -76,9 +82,9 @@ export const MOCK_STATS: Stat[] = [
 export const MOCK_PIPELINE = [
   { stage: "Applied" as const, count: 142, description: "New applications received" },
   { stage: "Screened" as const, count: 98, description: "Resumes parsed & ranked" },
-  { stage: "Interview Sent" as const, count: 54, description: "Invitations dispatched" },
-  { stage: "Interviewed" as const, count: 38, description: "Completed AI proctored sessions" },
-  { stage: "Decision" as const, count: 16, description: "Ready for final sign-off" },
+  { stage: "Interview" as const, count: 54, description: "Completed AI proctored sessions" },
+  { stage: "Offer" as const, count: 38, description: "Offers extended to top candidates" },
+  { stage: "Hired" as const, count: 16, description: "Candidates hired successfully" },
 ]
 
 export const MOCK_JOBS: Job[] = [
@@ -125,25 +131,236 @@ export const MOCK_JOBS: Job[] = [
 ]
 
 export const MOCK_CANDIDATES: Candidate[] = [
-  // Applied
-  { id: "cand-1", name: "Rohan Sharma", role: "Senior Fullstack Engineer", score: 82, stage: "Applied", date: "2026-06-18", status: "Pending" },
-  { id: "cand-2", name: "Priya Patel", role: "DevOps Systems Specialist", score: 79, stage: "Applied", date: "2026-06-17", status: "Pending" },
-  { id: "cand-3", name: "Vikram Singh", role: "Lead UI/UX Designer", score: 85, stage: "Applied", date: "2026-06-18", status: "Pending" },
-  // Screened
-  { id: "cand-4", name: "Arjun Mehta", role: "Data Analyst", score: 89, stage: "Screened", date: "2026-06-17", status: "Consider" },
-  { id: "cand-5", name: "Ananya Rao", role: "Senior Fullstack Engineer", score: 91, stage: "Screened", date: "2026-06-16", status: "Strong Hire" },
-  { id: "cand-6", name: "Rahul Verma", role: "Lead UI/UX Designer", score: 74, stage: "Screened", date: "2026-06-15", status: "Consider" },
-  // Interview Sent
-  { id: "cand-7", name: "Siddharth Nair", role: "Senior QA Automation Engineer", score: 80, stage: "Interview Sent", date: "2026-06-16", status: "Pending" },
-  { id: "cand-8", name: "Meera Krishnan", role: "Staff Product Manager", score: 86, stage: "Interview Sent", date: "2026-06-17", status: "Consider" },
-  // Interviewed
-  { id: "cand-9", name: "Sarah Chen", role: "Senior Fullstack Engineer", score: 87, stage: "Interviewed", date: "2026-06-18", status: "Strong Hire" },
-  { id: "cand-10", name: "Marcus Johnson", role: "DevOps Systems Specialist", score: 85, stage: "Interviewed", date: "2026-06-17", status: "Consider" },
-  { id: "cand-11", name: "Emma Watson", role: "Senior QA Automation Engineer", score: 45, stage: "Interviewed", date: "2026-06-16", status: "Not Recommended" },
-  // Decision
-  { id: "cand-12", name: "Devon Lane", role: "Lead UI/UX Designer", score: 96, stage: "Decision", date: "2026-06-15", status: "Strong Hire" },
-  { id: "cand-13", name: "John Doe", role: "Senior Fullstack Engineer", score: 94, stage: "Decision", date: "2026-06-14", status: "Strong Hire" },
-  { id: "cand-14", name: "Esther Howard", role: "Staff Product Manager", score: 74, stage: "Decision", date: "2026-06-15", status: "Consider" },
+  // Stage: Applied
+  { 
+    id: "cand-1", 
+    jobId: "job-1", 
+    name: "Rohan Sharma", 
+    role: "Senior Fullstack Engineer", 
+    score: 82, 
+    stage: "Applied", 
+    date: "2026-06-18", 
+    status: "Pending",
+    interviewStatus: "Pending",
+    email: "rohan.sharma@example.com",
+    phone: "+91 98765 43210",
+    skills: ["React", "Node.js", "Express", "MongoDB", "JavaScript"]
+  },
+  { 
+    id: "cand-2", 
+    jobId: "job-2", 
+    name: "Priya Patel", 
+    role: "DevOps Systems Specialist", 
+    score: 48, 
+    stage: "Applied", 
+    date: "2026-06-17", 
+    status: "Pending",
+    interviewStatus: "Pending",
+    email: "priya.patel@example.com",
+    phone: "+91 99887 76655",
+    skills: ["Docker", "Linux", "Nginx", "Bash Scripting"]
+  },
+  { 
+    id: "cand-3", 
+    jobId: "job-3", 
+    name: "Vikram Singh", 
+    role: "Lead UI/UX Designer", 
+    score: 85, 
+    stage: "Applied", 
+    date: "2026-06-18", 
+    status: "Pending",
+    interviewStatus: "Pending",
+    email: "vikram.singh@example.com",
+    phone: "+91 91234 56789",
+    skills: ["Figma", "Sketch", "Adobe XD", "Wireframing", "Prototyping"]
+  },
+  
+  // Stage: Screened
+  { 
+    id: "cand-4", 
+    jobId: "job-1", 
+    name: "Arjun Mehta", 
+    role: "Senior Fullstack Engineer", 
+    score: 89, 
+    stage: "Screened", 
+    date: "2026-06-17", 
+    status: "Consider",
+    interviewStatus: "Pending",
+    email: "arjun.mehta@example.com",
+    phone: "+91 88776 65544",
+    skills: ["TypeScript", "Next.js", "React", "PostgreSQL", "TailwindCSS"]
+  },
+  { 
+    id: "cand-5", 
+    jobId: "job-1", 
+    name: "Ananya Rao", 
+    role: "Senior Fullstack Engineer", 
+    score: 91, 
+    stage: "Screened", 
+    date: "2026-06-16", 
+    status: "Strong Hire",
+    interviewStatus: "Pending",
+    email: "ananya.rao@example.com",
+    phone: "+91 77665 54433",
+    skills: ["React Native", "TypeScript", "Node.js", "AWS", "GraphQL"]
+  },
+  { 
+    id: "cand-6", 
+    jobId: "job-3", 
+    name: "Rahul Verma", 
+    role: "Lead UI/UX Designer", 
+    score: 74, 
+    stage: "Screened", 
+    date: "2026-06-15", 
+    status: "Consider",
+    interviewStatus: "Pending",
+    email: "rahul.verma@example.com",
+    phone: "+91 66554 43322",
+    skills: ["UI Design", "Visual Design", "HTML", "CSS", "Design Systems"]
+  },
+
+  // Stage: Interview
+  { 
+    id: "cand-7", 
+    jobId: "job-5", 
+    name: "Siddharth Nair", 
+    role: "Senior QA Automation Engineer", 
+    score: 80, 
+    stage: "Interview", 
+    date: "2026-06-16", 
+    status: "Pending",
+    interviewStatus: "Suspended",
+    interviewScore: 30,
+    email: "siddharth.nair@example.com",
+    phone: "+91 55443 32211",
+    skills: ["Selenium", "Python", "PyTest", "Jenkins", "API Testing"]
+  },
+  { 
+    id: "cand-8", 
+    jobId: "job-4", 
+    name: "Meera Krishnan", 
+    role: "Staff Product Manager", 
+    score: 86, 
+    stage: "Interview", 
+    date: "2026-06-17", 
+    status: "Consider",
+    interviewStatus: "Completed",
+    interviewScore: 82,
+    email: "meera.k@example.com",
+    phone: "+91 44332 21100",
+    skills: ["Product Roadmap", "Agile", "User Stories", "Analytics", "SQL"]
+  },
+  { 
+    id: "cand-9", 
+    jobId: "job-1", 
+    name: "Sarah Chen", 
+    role: "Senior Fullstack Engineer", 
+    score: 87, 
+    stage: "Interview", 
+    date: "2026-06-18", 
+    status: "Strong Hire",
+    interviewStatus: "Completed",
+    interviewScore: 92,
+    email: "sarah.chen@example.com",
+    phone: "+1 555 019 2834",
+    skills: ["Next.js", "React", "Node.js", "Redis", "Docker", "Kubernetes"]
+  },
+
+  // Stage: Offer
+  { 
+    id: "cand-10", 
+    jobId: "job-2", 
+    name: "Marcus Johnson", 
+    role: "DevOps Systems Specialist", 
+    score: 88, 
+    stage: "Offer", 
+    date: "2026-06-12", 
+    status: "Strong Hire",
+    interviewStatus: "Completed",
+    interviewScore: 90,
+    email: "m.johnson@example.com",
+    phone: "+1 555 014 3829",
+    skills: ["AWS", "Terraform", "Kubernetes", "Ansible", "CI/CD Pipelines"]
+  },
+  { 
+    id: "cand-11", 
+    jobId: "job-5", 
+    name: "Emma Watson", 
+    role: "Senior QA Automation Engineer", 
+    score: 82, 
+    stage: "Offer", 
+    date: "2026-06-11", 
+    status: "Consider",
+    interviewStatus: "Completed",
+    interviewScore: 78,
+    email: "emma.watson@example.com",
+    phone: "+1 555 011 2233",
+    skills: ["Playwright", "Cypress", "JavaScript", "CI/CD", "Load Testing"]
+  },
+
+  // Stage: Hired
+  { 
+    id: "cand-12", 
+    jobId: "job-3", 
+    name: "Devon Lane", 
+    role: "Lead UI/UX Designer", 
+    score: 96, 
+    stage: "Hired", 
+    date: "2026-06-15", 
+    status: "Strong Hire",
+    interviewStatus: "Completed",
+    interviewScore: 98,
+    email: "devon.lane@example.com",
+    phone: "+1 555 017 3728",
+    skills: ["Figma", "User Research", "Interaction Design", "Typography", "HTML/CSS"]
+  },
+  { 
+    id: "cand-13", 
+    jobId: "job-1", 
+    name: "John Doe", 
+    role: "Senior Fullstack Engineer", 
+    score: 94, 
+    stage: "Hired", 
+    date: "2026-06-14", 
+    status: "Strong Hire",
+    interviewStatus: "Completed",
+    interviewScore: 94,
+    email: "john.doe@example.com",
+    phone: "+1 555 018 4839",
+    skills: ["React", "GraphQL", "Ruby on Rails", "PostgreSQL", "Heroku"]
+  },
+
+  // Stage: Rejected
+  { 
+    id: "cand-14", 
+    jobId: "job-4", 
+    name: "Esther Howard", 
+    role: "Staff Product Manager", 
+    score: 74, 
+    stage: "Rejected", 
+    date: "2026-06-15", 
+    status: "Not Recommended",
+    interviewStatus: "Completed",
+    interviewScore: 52,
+    email: "esther.howard@example.com",
+    phone: "+1 555 019 1234",
+    skills: ["Scrum", "Market Research", "Jira", "Excel"]
+  },
+  { 
+    id: "cand-15", 
+    jobId: "job-2", 
+    name: "Robert Fox", 
+    role: "DevOps Systems Specialist", 
+    score: 65, 
+    stage: "Rejected", 
+    date: "2026-06-16", 
+    status: "Not Recommended",
+    interviewStatus: "Suspended",
+    interviewScore: 0,
+    email: "robert.fox@example.com",
+    phone: "+1 555 012 3456",
+    skills: ["Linux", "Docker", "Apache", "MySQL"]
+  }
 ]
 
 export const MOCK_ACTIVITIES: Activity[] = [
