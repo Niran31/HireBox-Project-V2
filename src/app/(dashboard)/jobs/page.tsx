@@ -1,59 +1,107 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Job, MOCK_JOBS } from "@/lib/mock-data"
+import React, { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { api, ApiJob } from "@/lib/api"
 import { JobCard } from "@/components/jobs/JobCard"
 import { CreateJobModal } from "@/components/jobs/CreateJobModal"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 import { 
   Plus, 
   Briefcase, 
   Users, 
   TrendingUp, 
-  FileText,
   Search,
   CheckCircle,
   AlertTriangle
 } from "lucide-react"
 
+// Alias for compatibility
+type Job = ApiJob
+
 export default function JobsPage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [jobs, setJobs] = useState<Job[]>([])
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<Job | null>(null)
 
-  // Simulation loading 1.5s
-  useEffect(() => {
-    setJobs(MOCK_JOBS)
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
+  // React Query fetch jobs
+  const { data: jobs = [], isLoading, isError } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: api.getJobs,
+  })
+
+  // Mutations
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ id, currentStatus }: { id: string | number; currentStatus: string }) => {
+      const nextStatus = currentStatus === "Active" ? "Closed" : "Active"
+      return api.updateJob(id, { status: nextStatus as any })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] })
+      toast.success("Job status toggled successfully!")
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to update job status.")
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] })
+      toast.success("Job posting deleted successfully.")
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete job posting.")
+    }
+  })
+
+  const createMutation = useMutation({
+    mutationFn: api.createJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] })
+      toast.success("New job opening created successfully!")
+      setIsModalOpen(false)
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to post new job opening.")
+    }
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: Partial<Job> }) => api.updateJob(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] })
+      toast.success("Job listing updated successfully!")
+      setIsModalOpen(false)
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to save job changes.")
+    }
+  })
 
   // Status toggle handler
   const handleStatusToggle = (id: string) => {
-    setJobs(prev =>
-      prev.map(j =>
-        j.id === id
-          ? { ...j, status: j.status === "Active" ? "Closed" : "Active" }
-          : j
-      )
-    )
+    const targetJob = jobs.find(j => j.id.toString() === id.toString())
+    if (targetJob) {
+      toggleStatusMutation.mutate({ id, currentStatus: targetJob.status })
+    }
   }
 
   // Delete handler
   const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this job posting? All applicants will be unlinked.")) {
-      setJobs(prev => prev.filter(j => j.id !== id))
+      deleteMutation.mutate(id)
     }
   }
 
   // Open edit modal
   const handleEditClick = (job: Job) => {
+    // Cast type to fit component spec
     setEditingJob(job)
     setIsModalOpen(true)
   }
@@ -66,30 +114,12 @@ export default function JobsPage() {
 
   // Save / Post handler (works for both edit and create)
   const handleSaveJob = (jobData: Omit<Job, "candidates" | "topScore" | "created">) => {
-    if (jobData.id) {
+    if (editingJob) {
       // Edit
-      setJobs(prev =>
-        prev.map(j =>
-          j.id === jobData.id
-            ? { 
-                ...j, 
-                ...jobData,
-                status: j.status // preserve status
-              }
-            : j
-        )
-      )
+      updateMutation.mutate({ id: editingJob.id, data: jobData })
     } else {
       // Create
-      const newJob: Job = {
-        ...jobData,
-        id: `job-${Date.now()}`,
-        candidates: 0,
-        topScore: 0,
-        created: new Date().toISOString().split("T")[0],
-        status: "Active",
-      }
-      setJobs(prev => [newJob, ...prev])
+      createMutation.mutate(jobData)
     }
   }
 
@@ -139,7 +169,7 @@ export default function JobsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       
       {/* Top Header Row */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -160,7 +190,7 @@ export default function JobsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         
         {/* Stat 1 */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3 dark:bg-slate-900">
           <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Briefcase className="h-5 w-5" />
           </div>
@@ -171,7 +201,7 @@ export default function JobsPage() {
         </div>
 
         {/* Stat 2 */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3 dark:bg-slate-900">
           <div className="h-10 w-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <CheckCircle className="h-5 w-5" />
           </div>
@@ -182,7 +212,7 @@ export default function JobsPage() {
         </div>
 
         {/* Stat 3 */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3 dark:bg-slate-900">
           <div className="h-10 w-10 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
             <Users className="h-5 w-5" />
           </div>
@@ -193,7 +223,7 @@ export default function JobsPage() {
         </div>
 
         {/* Stat 4 */}
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex items-center gap-3 dark:bg-slate-900">
           <div className="h-10 w-10 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
             <TrendingUp className="h-5 w-5" />
           </div>
@@ -212,14 +242,14 @@ export default function JobsPage() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search jobs by title, location or department..."
-          className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+          className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950"
         />
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
       </div>
 
-      {/* Jobs Cards Grid (3 cols desktop, 2 tablet, 1 mobile) */}
+      {/* Jobs Cards Grid */}
       {filteredJobs.length === 0 ? (
-        <div className="py-16 text-center text-brand-muted-text space-y-3 border border-dashed border-border rounded-xl bg-card">
+        <div className="py-16 text-center text-brand-muted-text space-y-3 border border-dashed border-border rounded-xl bg-card dark:bg-slate-900">
           <Briefcase className="h-12 w-12 mx-auto stroke-1" />
           <div>
             <p className="font-semibold text-lg">No job openings found</p>
@@ -231,9 +261,9 @@ export default function JobsPage() {
           {filteredJobs.map((job) => (
             <JobCard
               key={job.id}
-              job={job}
+              job={job as any} // Cast for component compat
               onStatusToggle={handleStatusToggle}
-              onEdit={handleEditClick}
+              onEdit={handleEditClick as any}
               onDelete={handleDelete}
             />
           ))}
@@ -244,8 +274,8 @@ export default function JobsPage() {
       <CreateJobModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        onSave={handleSaveJob}
-        editingJob={editingJob}
+        onSave={handleSaveJob as any}
+        editingJob={editingJob as any}
       />
       
     </div>

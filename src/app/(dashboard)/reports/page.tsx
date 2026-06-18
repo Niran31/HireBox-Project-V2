@@ -1,26 +1,24 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Candidate, MOCK_CANDIDATES, MOCK_JOBS } from "@/lib/mock-data"
+import React, { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { api, ApiCandidate } from "@/lib/api"
 import { CandidateReport } from "@/components/reports/CandidateReport"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   Search, 
-  Filter, 
   ArrowRight, 
   Calendar, 
   SlidersHorizontal,
   FileText,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  HelpCircle
+  Filter
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// Alias for compatibility
+type Candidate = ApiCandidate
+
 export default function ReportsPage() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [completedCandidates, setCompletedCandidates] = useState<Candidate[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   
   // Filters state
@@ -31,19 +29,17 @@ export default function ReportsPage() {
   // Active scorecard detail view state
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null)
 
-  // Simulation loading
-  useEffect(() => {
-    // Filter completed or suspended candidates for reports list
-    const reportsList = MOCK_CANDIDATES.filter(
-      (c) => c.interviewStatus === "Completed" || c.interviewStatus === "Suspended"
-    )
-    setCompletedCandidates(reportsList)
-    
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
+  // React Query: Get candidates (completed and suspended ones)
+  const { data: candidates = [], isLoading } = useQuery({
+    queryKey: ["candidates"],
+    queryFn: () => api.getCandidates(),
+  })
+
+  // React Query: Get jobs list for filter selector
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: api.getJobs,
+  })
 
   // Helper: calculate final recommendation category from interview score
   const getRecommendation = (cand: Candidate) => {
@@ -57,7 +53,12 @@ export default function ReportsPage() {
     return "borderline"
   }
 
-  // Filter candidates list
+  // Filter completed or suspended candidates for reports list
+  const completedCandidates = candidates.filter(
+    (c) => c.interviewStatus === "Completed" || c.interviewStatus === "Suspended"
+  )
+
+  // Filter candidates list based on selectors
   const filteredCandidates = completedCandidates.filter((c) => {
     // Search query match
     const matchesSearch = 
@@ -65,7 +66,7 @@ export default function ReportsPage() {
       c.role.toLowerCase().includes(searchQuery.toLowerCase())
     
     // Job filter match
-    const matchesJob = selectedJobId === "all" || c.jobId === selectedJobId
+    const matchesJob = selectedJobId === "all" || c.jobId.toString() === selectedJobId.toString()
     
     // Weighted score match
     const technicalGrade = c.interviewScore || (c.score - 5)
@@ -95,14 +96,14 @@ export default function ReportsPage() {
         </div>
         
         {/* Filters Panel Skeleton */}
-        <div className="rounded-xl border border-border p-4 bg-card grid gap-4 grid-cols-1 sm:grid-cols-4">
+        <div className="rounded-xl border border-border p-4 bg-card grid gap-4 grid-cols-1 sm:grid-cols-4 dark:bg-slate-900">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-10 w-full rounded-lg" />
           ))}
         </div>
 
         {/* Table Skeletons */}
-        <div className="border border-border rounded-xl bg-card overflow-hidden">
+        <div className="border border-border rounded-xl bg-card overflow-hidden dark:bg-slate-900">
           <div className="p-4 border-b border-border">
             <Skeleton className="h-6 w-32" />
           </div>
@@ -120,14 +121,14 @@ export default function ReportsPage() {
   if (activeCandidate) {
     return (
       <CandidateReport
-        candidate={activeCandidate}
+        candidate={activeCandidate as any}
         onBack={() => setActiveCandidate(null)}
       />
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       
       {/* Header Block */}
       <div>
@@ -145,7 +146,7 @@ export default function ReportsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search candidate or role..."
-            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none text-slate-900 dark:text-slate-100 dark:bg-slate-950 transition-colors"
+            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors"
           />
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
         </div>
@@ -155,10 +156,10 @@ export default function ReportsPage() {
           <select
             value={selectedJobId}
             onChange={(e) => setSelectedJobId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none text-slate-900 dark:text-slate-100 dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
           >
             <option value="all">All Jobs</option>
-            {MOCK_JOBS.map((job) => (
+            {jobs.map((job) => (
               <option key={job.id} value={job.id}>{job.title}</option>
             ))}
           </select>
@@ -169,7 +170,7 @@ export default function ReportsPage() {
           <select
             value={selectedScoreRange}
             onChange={(e) => setSelectedScoreRange(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none text-slate-900 dark:text-slate-100 dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
           >
             <option value="all">All Scores</option>
             <option value="90+">Grade A (90%+)</option>
@@ -184,7 +185,7 @@ export default function ReportsPage() {
           <select
             value={selectedRec}
             onChange={(e) => setSelectedRec(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none text-slate-900 dark:text-slate-100 dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
           >
             <option value="all">All Actions</option>
             <option value="recommend">Recommend Hire</option>
@@ -280,7 +281,7 @@ export default function ReportsPage() {
                         )}>
                           <span className={cn(
                             "h-1.5 w-1.5 rounded-full",
-                            cand.interviewStatus === "Completed" ? "bg-emerald-500" : "bg-rose-500"
+                            cand.interviewStatus === "Completed" ? "bg-emerald-505" : "bg-rose-500"
                           )} />
                           {cand.interviewStatus === "Completed" ? "Secure" : "Suspended"}
                         </span>

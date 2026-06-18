@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useState } from "react"
-import { Candidate } from "@/lib/mock-data"
+import { useQuery } from "@tanstack/react-query"
+import { api, ApiCandidate, ApiReport } from "@/lib/api"
 import { 
   ArrowLeft, 
   Download, 
@@ -21,56 +22,90 @@ import {
   Percent
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface CandidateReportProps {
-  candidate: Candidate
+  candidate: ApiCandidate
   onBack: () => void
-}
-
-interface MockQA {
-  question: string
-  answer: string
-  score: number
-  feedback: string
 }
 
 export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
 
-  // Weighted scores simulation
-  const technicalGrade = candidate.interviewScore || (candidate.score - 5)
-  const resumeScore = candidate.score
-  const behavioralGrade = Math.min(100, Math.round(candidate.score + (candidate.id === "cand-9" ? 5 : -2)))
+  // React Query: fetch detailed scorecard report from Flask API
+  const { 
+    data: report, 
+    isLoading, 
+    isError 
+  } = useQuery<ApiReport>({
+    queryKey: ["report", candidate.id],
+    queryFn: () => api.getReport(candidate.id),
+    retry: 1
+  })
+
+  // Skeletons loader if loading report
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-semibold text-brand-muted-text">
+          <ArrowLeft className="h-4 w-4" /> Back to Reports List
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 space-y-6">
+            <Skeleton className="h-[350px] w-full rounded-xl" />
+            <Skeleton className="h-[200px] w-full rounded-xl" />
+          </div>
+          <div className="lg:col-span-8 space-y-6">
+            <Skeleton className="h-[200px] w-full rounded-xl" />
+            <Skeleton className="h-[150px] w-full rounded-xl" />
+            <Skeleton className="h-[250px] w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // --- Dynamic Mapped / Fallback Parameters ---
   
-  // Formula: Final = Resume×0.3 + Technical×0.5 + Behavioral×0.2
-  const calculatedFinalScore = Math.round(
-    resumeScore * 0.3 + technicalGrade * 0.5 + behavioralGrade * 0.2
+  // Weighted scores fallback if backend report is unavailable
+  const fallbackTechnicalGrade = candidate.interviewScore || (candidate.score - 5)
+  const fallbackResumeScore = candidate.score
+  const fallbackBehavioralGrade = Math.min(100, Math.round(candidate.score + (candidate.id.toString() === "cand-9" ? 5 : -2)))
+  const fallbackFinalScore = Math.round(
+    fallbackResumeScore * 0.3 + fallbackTechnicalGrade * 0.5 + fallbackBehavioralGrade * 0.2
   )
 
+  const calculatedFinalScore = report ? report.calculatedFinalScore : fallbackFinalScore
+  const resumeScore = report ? report.resumeScore : fallbackResumeScore
+  const technicalGrade = report ? report.technicalGrade : fallbackTechnicalGrade
+  const behavioralGrade = report ? report.behavioralGrade : fallbackBehavioralGrade
+
   // Recommendation configuration
-  let recommendation: "recommend" | "borderline" | "do_not_hire" = "borderline"
-  if (calculatedFinalScore >= 80 && candidate.interviewStatus !== "Suspended") {
-    recommendation = "recommend"
-  } else if (calculatedFinalScore < 65 || candidate.interviewStatus === "Suspended") {
-    recommendation = "do_not_hire"
+  let fallbackRec: "recommend" | "borderline" | "do_not_hire" = "borderline"
+  if (fallbackFinalScore >= 80 && candidate.interviewStatus !== "Suspended") {
+    fallbackRec = "recommend"
+  } else if (fallbackFinalScore < 65 || candidate.interviewStatus === "Suspended") {
+    fallbackRec = "do_not_hire"
   }
+  const recommendation = report ? report.recommendation : fallbackRec
 
   // Circular gauge parameters
   const radius = 40
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (calculatedFinalScore / 100) * circumference
 
-  // Mock proctoring logs matching candidate status
-  const getProctoringLogs = () => {
+  // Proctoring logs mapping
+  const getProctoringFallback = () => {
     if (candidate.interviewStatus === "Suspended") {
       return {
         integrity: "Suspended" as const,
         color: "text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30",
         logs: [
-          { time: "01:12", event: "Tab minimization detected (Attempt 1)", type: "warning" },
-          { time: "02:45", event: "Multiple faces detected in camera feed", type: "alert" },
-          { time: "03:10", event: "Mobile device detected in candidate's hand", type: "critical" },
-          { time: "03:12", event: "Session suspended automatically due to security violation", type: "system" }
+          { time: "01:12", event: "Tab minimization detected (Attempt 1)", type: "warning" as const },
+          { time: "02:45", event: "Multiple faces detected in camera feed", type: "alert" as const },
+          { time: "03:10", event: "Mobile device detected in candidate's hand", type: "critical" as const },
+          { time: "03:12", event: "Session suspended automatically due to security violation", type: "system" as const }
         ]
       }
     } else if (candidate.score < 75) {
@@ -78,8 +113,8 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
         integrity: "Minor Violations" as const,
         color: "text-amber-500 bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30",
         logs: [
-          { time: "05:14", event: "Temporary loss of face visibility (12 seconds)", type: "warning" },
-          { time: "11:22", event: "Browser focus lost (tab switched)", type: "warning" }
+          { time: "05:14", event: "Temporary loss of face visibility (12 seconds)", type: "warning" as const },
+          { time: "11:22", event: "Browser focus lost (tab switched)", type: "warning" as const }
         ]
       }
     } else {
@@ -87,57 +122,71 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
         integrity: "Clean" as const,
         color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30",
         logs: [
-          { time: "00:00", event: "Webcam and microphone calibration verified", type: "info" },
-          { time: "15:00", event: "Interview completed. No anomalies detected.", type: "info" }
+          { time: "00:00", event: "Webcam and microphone calibration verified", type: "info" as const },
+          { time: "15:00", event: "Interview completed. No anomalies detected.", type: "info" as const }
         ]
       }
     }
   }
 
-  const proctorStatus = getProctoringLogs()
+  const getIntegrityColor = (integ: string) => {
+    switch(integ) {
+      case "Clean": return "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30"
+      case "Minor Violations": return "text-amber-500 bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30"
+      default: return "text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30"
+    }
+  }
 
-  // Dynamic AI Q&A feedback generators based on candidate's skills
-  const mockQA: MockQA[] = [
+  const proctorStatus = report ? {
+    integrity: report.proctorIntegrity,
+    color: getIntegrityColor(report.proctorIntegrity),
+    logs: report.proctorLogs
+  } : getProctoringFallback()
+
+  // Q&A responses list mapping
+  const fallbackQA = [
     {
       question: "Explain the main differences between Next.js React Server Components (RSC) and Client Components. When should you use each?",
-      answer: candidate.id === "cand-9" 
+      answer: candidate.id.toString() === "cand-9" 
         ? "Server Components execute solely on the server side, keeping vendor libraries out of the bundle. Client Components are hydrated in-browser for handles, state, and browser-only APIs. I use RSC by default and Client Components for buttons, modals, and client hooks."
         : "Server components are for loading data on the server. Client components run on the client for user clicks and state. Next.js does server components by default.",
-      score: candidate.id === "cand-9" ? 94 : 78,
-      feedback: candidate.id === "cand-9"
+      score: candidate.id.toString() === "cand-9" ? 94 : 78,
+      feedback: candidate.id.toString() === "cand-9"
         ? "Excellent response. Accurately defined the bundle-reduction benefits of server components and boundary rules."
         : "Correct concept, but lacked detail regarding client bundle sizes and hydration boundaries."
     },
     {
       question: "Describe a challenging technical bug you encountered in production. How did you diagnose and resolve it?",
-      answer: candidate.id === "cand-9"
+      answer: candidate.id.toString() === "cand-9"
         ? "Diagnosed a DB CPU spike due to an unindexed foreign key in an inner loop. Analyzed Slow Query logs, added the target index, and batched queries to resolve the database bottleneck."
         : "Our server crashed because of infinite loops in our database query. I logged out details, found the file, and fixed the condition.",
-      score: candidate.id === "cand-9" ? 90 : 70,
-      feedback: candidate.id === "cand-9"
+      score: candidate.id.toString() === "cand-9" ? 90 : 70,
+      feedback: candidate.id.toString() === "cand-9"
         ? "Great debugging demonstration. Clear systematic approach (metrics, logging, optimization execution)."
         : "Vague debugging methodology. Lacked details about specific monitoring tools or database optimization mechanics."
     },
     {
       question: "How do you optimize the performance of a React application with a large dataset rendering dynamically?",
-      answer: candidate.id === "cand-9"
+      answer: candidate.id.toString() === "cand-9"
         ? "Adopted list windowing via react-window to render only the visible viewport. Implemented memoization hooks, dynamic import boundaries, and debounced heavy handlers to minimize render blocking."
         : "I use lazy loading, pagination, and React memo to avoid rendering everything at once on the page.",
-      score: candidate.id === "cand-9" ? 92 : 75,
-      feedback: candidate.id === "cand-9"
+      score: candidate.id.toString() === "cand-9" ? 92 : 75,
+      feedback: candidate.id.toString() === "cand-9"
         ? "Highly proficient. Shows active experience deploying layout optimization tools for scalable feeds."
         : "Recognized core concepts (pagination, memo) but did not mention virtual lists or thread rendering bottlenecks."
     }
   ]
 
-  // Executive summary comments
+  const mockQA = report ? report.qaBreakdown : fallbackQA
+
+  // Executive AI Summary comment
   const getAISummary = () => {
     if (candidate.interviewStatus === "Suspended") {
       return `WARNING: This candidate's session was automatically suspended due to severe proctoring violations. A mobile device was detected in hand, alongside multiple instances of tab-switching. The final score is not representative of their skills. Recommend disqualification.`
     }
     
     if (calculatedFinalScore >= 85) {
-      return `Sarah demonstrated top-tier engineering talent. Her technical solutions to Next.js architectural boundaries and database optimizations were precise and well-reasoned. In behavioral questions, she exhibited clear communication and agile alignment. Strongly recommend moving to the final executive round.`
+      return `${candidate.name} demonstrated top-tier engineering talent. Technical solutions to Next.js architectural boundaries and database optimizations were precise and well-reasoned. In behavioral questions, communication and agile alignment were clear. Strongly recommend moving to the final executive round.`
     }
     
     if (calculatedFinalScore >= 75) {
@@ -146,6 +195,8 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
 
     return `The candidate has basic understanding but struggles with advanced technical concepts. Performance optimizations and database batching questions lacked detail. Behavioral answers were adequate but generic. Recommend looking at other applicants.`
   }
+
+  const aiSummary = report ? report.aiSummary : getAISummary()
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-900 dark:text-slate-100">
@@ -381,7 +432,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
 
             <div className="p-4 bg-brand-primary-bg/50 dark:bg-slate-950 border border-brand-primary/10 rounded-xl text-xs md:text-sm leading-relaxed space-y-2">
               <p className="text-slate-700 dark:text-slate-300 italic">
-                "{getAISummary()}"
+                "{aiSummary}"
               </p>
             </div>
           </div>

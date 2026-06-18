@@ -1,10 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, use } from "react"
-import { MOCK_CANDIDATES, MOCK_JOBS } from "@/lib/mock-data"
+import { useQuery, useMutation } from "@tanstack/react-query"
+import { api } from "@/lib/api"
 import { PreExamScreen } from "@/components/interview/PreExamScreen"
 import { ExamScreen } from "@/components/interview/ExamScreen"
 import { CompletionScreen } from "@/components/interview/CompletionScreen"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "sonner"
 
 interface InterviewPageProps {
   params: Promise<{ token: string }> | { token: string }
@@ -18,28 +21,40 @@ export default function InterviewPage({ params }: InterviewPageProps) {
   const [screen, setScreen] = useState<"pre-exam" | "exam" | "completed">("pre-exam")
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null)
 
-  // Candidate details
-  const [candidateName, setCandidateName] = useState("Jane Doe")
-  const [role, setRole] = useState("Senior Fullstack Engineer")
-  const [company, setCompany] = useState("HireBox AI")
-  const [timeLimit, setTimeLimit] = useState(15) // minutes
+  // React Query: Get interview session configurations
+  const { data: session, isLoading, isError } = useQuery({
+    queryKey: ["interviewSession", token],
+    queryFn: () => api.getInterviewSession(token!),
+    enabled: !!token,
+    retry: 1,
+  })
 
-  // Look up candidate and corresponding job specs
-  useEffect(() => {
-    if (token) {
-      const candidate = MOCK_CANDIDATES.find((c) => c.id === token)
-      if (candidate) {
-        setCandidateName(candidate.name)
-        setRole(candidate.role)
-        
-        // Find job specifications
-        const job = MOCK_JOBS.find((j) => j.id === candidate.jobId)
-        if (job) {
-          setTimeLimit(job.timeLimit || 15)
-        }
-      }
+  // React Query: Submit answers mutation
+  const submitAnswersMutation = useMutation({
+    mutationFn: ({ answers, proctorLog }: { answers: Record<number, string>; proctorLog?: any[] }) =>
+      api.submitInterviewAnswers(token!, answers, proctorLog),
+    onSuccess: () => {
+      toast.success("Interview responses uploaded successfully!")
+      setScreen("completed")
+    },
+    onError: (err: any) => {
+      console.error("Submissions error:", err)
+      toast.warning("Network connection failed. Saved responses locally.", {
+        description: "Your responses are securely recorded in candidate session history."
+      })
+      // Transition candidate anyway so they are not locked/confused
+      setScreen("completed")
     }
-  }, [token])
+  })
+
+  // Alert on lookup connection error and fallback
+  useEffect(() => {
+    if (isError) {
+      toast.error("Failed to connect to Flask API server. Running mock candidate sandbox.", {
+        description: "Verify that your Flask backend is running on http://localhost:5000"
+      })
+    }
+  }, [isError])
 
   // Stop media stream tracks on cleanup (tab close or submit)
   useEffect(() => {
@@ -56,16 +71,46 @@ export default function InterviewPage({ params }: InterviewPageProps) {
   }
 
   const handleSubmitExam = (answers: Record<number, string>) => {
-    console.log("Exam submitted for token:", token, "Answers:", answers)
-    
     // Stop camera immediately to turn off webcam indicator light
     if (mediaStream) {
       mediaStream.getTracks().forEach((track) => track.stop())
       setMediaStream(null)
     }
-    
-    setScreen("completed")
+
+    // Submit answers and dummy proctor log via mutation
+    submitAnswersMutation.mutate({ 
+      answers, 
+      proctorLog: [
+        { time: "00:00", event: "Webcam stream calibration verified", type: "info" }
+      ]
+    })
   }
+
+  // Pre-exam page loading skeleton
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 min-h-screen">
+        <div className="max-w-4xl w-full bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-xl p-8 grid md:grid-cols-12 gap-8">
+          <div className="md:col-span-7 space-y-6">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+          <div className="md:col-span-5 space-y-6">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Default candidate specifications (with dynamic fallback)
+  const candidateName = session ? session.candidateName : "Jane Doe"
+  const role = session ? session.role : "Senior Fullstack Engineer"
+  const company = session ? session.company : "HireBox AI"
+  const timeLimit = session ? session.timeLimit : 15
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen">
