@@ -423,10 +423,10 @@ export default function DashboardPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40 bg-white dark:bg-slate-900 border border-border">
                               <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
-                                <Link href="/candidates" className="flex items-center gap-2 w-full">
+                                <Link href={`/jobs/${job.id}`} className="flex items-center gap-2 w-full">
                                   <Eye className="h-3.5 w-3.5" />
                                   <span>View Pipeline</span>
-                                  </Link>
+                                </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-accent rounded">
                                 <Link href="/jobs" className="flex items-center gap-2 w-full">
