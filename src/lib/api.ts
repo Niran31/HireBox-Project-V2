@@ -236,5 +236,18 @@ export const api = {
 
   getAnalytics: () => {
     return fetchAPI<ApiAnalytics>("/analytics")
+  },
+
+  // Generate AI Questions for Candidate config
+  generateQuestions: (candidateId: string | number) => {
+    return fetchAPI<string[]>(`/interview/api/generate_questions/${candidateId}`)
+  },
+
+  // Create Interview Invitation
+  createInterview: (candidateId: string | number, payload: { time_limit: number; questions: string[]; candidate_email?: string }) => {
+    return fetchAPI<{ success: boolean; token: string; interviewLink: string }>(`/interviews/create/${candidateId}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
   }
 }

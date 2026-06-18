@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { CandidateCard } from "@/components/candidates/CandidateCard"
 import { CandidateDetailModal } from "@/components/candidates/CandidateDetailModal"
 import { AddCandidateModal } from "@/components/candidates/AddCandidateModal"
+import { ConfigureInterviewModal } from "@/components/candidates/ConfigureInterviewModal"
 import { toast } from "sonner"
 import { 
   Plus, 
@@ -94,6 +95,7 @@ export default function CandidatesPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [configuringCandidate, setConfiguringCandidate] = useState<Candidate | null>(null)
 
   // React Query: Get candidates
   const { data: candidates = [], isLoading, isError } = useQuery({
@@ -149,15 +151,21 @@ export default function CandidatesPage() {
 
     const targetCand = candidates.find(c => c.id.toString() === candidateId.toString())
     if (targetCand && targetCand.stage !== targetStage) {
-      moveStageMutation.mutate({ id: candidateId, stage: targetStage })
+      if (targetStage === "Interview") {
+        setConfiguringCandidate(targetCand)
+      } else {
+        moveStageMutation.mutate({ id: candidateId, stage: targetStage })
+      }
     }
   }
 
   // Invite action
   const handleInvite = (id: string) => {
-    // Inviting triggers interview stage movement
-    moveStageMutation.mutate({ id, stage: "Interview" })
-    toast.success("Interview invitation sent! Exam portal link generated.")
+    const targetCand = candidates.find(c => c.id.toString() === id.toString())
+    if (targetCand) {
+      setIsDetailOpen(false)
+      setConfiguringCandidate(targetCand)
+    }
   }
 
   // Reject action
@@ -168,7 +176,15 @@ export default function CandidatesPage() {
 
   // Move stage dropdown select action
   const handleMoveStage = (id: string, stage: Candidate["stage"]) => {
-    moveStageMutation.mutate({ id, stage })
+    if (stage === "Interview") {
+      const targetCand = candidates.find(c => c.id.toString() === id.toString())
+      if (targetCand) {
+        setIsDetailOpen(false)
+        setConfiguringCandidate(targetCand)
+      }
+    } else {
+      moveStageMutation.mutate({ id, stage })
+    }
   }
 
   // Register candidate
@@ -451,6 +467,24 @@ export default function CandidatesPage() {
         onOpenChange={setIsDetailOpen}
         onInvite={handleInvite}
         onMoveStage={handleMoveStage as any}
+      />
+
+      {/* Configure Interview Modal */}
+      <ConfigureInterviewModal
+        candidate={configuringCandidate}
+        open={configuringCandidate !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfiguringCandidate(null)
+        }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["candidates"] })
+          queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
+          if (configuringCandidate) {
+            // Also move their stage visually
+            moveStageMutation.mutate({ id: configuringCandidate.id, stage: "Interview" })
+          }
+          setConfiguringCandidate(null)
+        }}
       />
 
     </div>
