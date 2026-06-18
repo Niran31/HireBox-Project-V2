@@ -1,4 +1,5 @@
 import React from "react"
+import Link from "next/link"
 import { ThemeToggle } from "@/components/ui/ThemeToggle"
 import { 
   Users, 
@@ -12,8 +13,14 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
-  Bot
+  Bot,
+  Menu
 } from "lucide-react"
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 export default function Home() {
   return (
@@ -34,17 +41,51 @@ export default function Home() {
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-brand-muted-text">
-            <a href="#" className="hover:text-foreground transition-colors">Dashboard</a>
-            <a href="#" className="hover:text-foreground transition-colors">Jobs</a>
-            <a href="#" className="hover:text-foreground transition-colors">Interviews</a>
-            <a href="#" className="hover:text-foreground transition-colors">Analytics</a>
+            <Link href="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
+            <Link href="/jobs" className="hover:text-foreground transition-colors">Jobs</Link>
+            <Link href="/interviews" className="hover:text-foreground transition-colors">Interviews</Link>
+            <Link href="/analytics" className="hover:text-foreground transition-colors">Analytics</Link>
           </nav>
 
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <button className="hidden sm:inline-flex items-center justify-center rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+            
+            <Link 
+              href="/dashboard" 
+              className="hidden sm:inline-flex items-center justify-center rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-brand-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            >
               Recruiter Portal
-            </button>
+            </Link>
+
+            {/* Mobile Hamburger menu */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground hover:bg-accent md:hidden cursor-pointer">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle Menu</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] bg-background p-6">
+                <div className="flex flex-col gap-6 mt-6">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-6 w-6 text-brand-primary" />
+                    <span className="font-bold text-lg">HireBox Menu</span>
+                  </div>
+                  <nav className="flex flex-col gap-4 text-sm font-medium">
+                    <Link href="/dashboard" className="hover:text-brand-primary transition-colors py-2 border-b border-border/40">Dashboard</Link>
+                    <Link href="/jobs" className="hover:text-brand-primary transition-colors py-2 border-b border-border/40">Jobs</Link>
+                    <Link href="/interviews" className="hover:text-brand-primary transition-colors py-2 border-b border-border/40">Interviews</Link>
+                    <Link href="/analytics" className="hover:text-brand-primary transition-colors py-2 border-b border-border/40">Analytics</Link>
+                  </nav>
+                  <Link 
+                    href="/dashboard" 
+                    className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-brand-primary/90 transition-all cursor-pointer"
+                  >
+                    Recruiter Portal
+                  </Link>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
@@ -76,13 +117,19 @@ export default function Home() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4">
-                  <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-6 py-3 font-semibold text-white shadow-lg shadow-brand-primary/20 hover:bg-brand-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+                  <Link 
+                    href="/dashboard" 
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-6 py-3 font-semibold text-white shadow-lg shadow-brand-primary/20 hover:bg-brand-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                  >
                     Get Started Free
                     <ArrowRight className="h-4 w-4" />
-                  </button>
-                  <button className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 py-3 font-semibold hover:bg-accent hover:text-accent-foreground hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+                  </Link>
+                  <Link 
+                    href="/dashboard" 
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 py-3 font-semibold hover:bg-accent hover:text-accent-foreground hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                  >
                     Book a Demo
-                  </button>
+                  </Link>
                 </div>
               </div>
 
