@@ -3,7 +3,6 @@
 import React, { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api, ApiCandidate } from "@/lib/api"
-import { CandidateReport } from "@/components/reports/CandidateReport"
 import { Skeleton } from "@/components/ui/skeleton"
 import { 
   Search, 
@@ -14,38 +13,40 @@ import {
   Filter
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
-// Alias for compatibility
 type Candidate = ApiCandidate
 
 export default function ReportsPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   
   // Filters state
   const [selectedJobId, setSelectedJobId] = useState("all")
-  const [selectedScoreRange, setSelectedScoreRange] = useState("all")
+  const [minScore, setMinScore] = useState(0)
   const [selectedRec, setSelectedRec] = useState("all")
-
-  // Active scorecard detail view state
-  const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
 
   // React Query: Get candidates (completed and suspended ones)
-  const { data: candidates = [], isLoading } = useQuery({
+  const { data: candidates = [], isLoading, isError } = useQuery({
     queryKey: ["candidates"],
     queryFn: () => api.getCandidates(),
+    retry: false
   })
 
   // React Query: Get jobs list for filter selector
   const { data: jobs = [] } = useQuery({
     queryKey: ["jobs"],
     queryFn: api.getJobs,
+    retry: false
   })
 
   // Helper: calculate final recommendation category from interview score
   const getRecommendation = (cand: Candidate) => {
     const technicalGrade = cand.interviewScore || (cand.score - 5)
     const resumeScore = cand.score
-    const behavioralGrade = Math.min(100, Math.round(cand.score + (cand.id === "cand-9" ? 5 : -2)))
+    const behavioralGrade = Math.min(100, Math.round(cand.score + (cand.id.toString() === "cand-9" ? 5 : -2)))
     const finalScore = Math.round(resumeScore * 0.3 + technicalGrade * 0.5 + behavioralGrade * 0.2)
     
     if (finalScore >= 80 && cand.interviewStatus !== "Suspended") return "recommend"
@@ -72,17 +73,22 @@ export default function ReportsPage() {
     const technicalGrade = c.interviewScore || (c.score - 5)
     const finalScore = Math.round(c.score * 0.3 + technicalGrade * 0.5 + Math.min(100, c.score * 1.1) * 0.2)
     
-    let matchesScore = true
-    if (selectedScoreRange === "90+") matchesScore = finalScore >= 90
-    else if (selectedScoreRange === "80-89") matchesScore = finalScore >= 80 && finalScore < 90
-    else if (selectedScoreRange === "70-79") matchesScore = finalScore >= 70 && finalScore < 80
-    else if (selectedScoreRange === "under-70") matchesScore = finalScore < 70
+    const matchesScore = finalScore >= minScore
 
     // Recommendation match
     const rec = getRecommendation(c)
     const matchesRec = selectedRec === "all" || rec === selectedRec
 
-    return matchesSearch && matchesJob && matchesScore && matchesRec
+    // Date range match
+    let matchesDate = true
+    if (startDate) {
+      matchesDate = matchesDate && c.date >= startDate
+    }
+    if (endDate) {
+      matchesDate = matchesDate && c.date <= endDate
+    }
+
+    return matchesSearch && matchesJob && matchesScore && matchesRec && matchesDate
   })
 
   if (isLoading) {
@@ -96,8 +102,8 @@ export default function ReportsPage() {
         </div>
         
         {/* Filters Panel Skeleton */}
-        <div className="rounded-xl border border-border p-4 bg-card grid gap-4 grid-cols-1 sm:grid-cols-4 dark:bg-slate-900">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="rounded-xl border border-border p-4 bg-card grid gap-4 grid-cols-1 sm:grid-cols-5 dark:bg-slate-900">
+          {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-10 w-full rounded-lg" />
           ))}
         </div>
@@ -117,16 +123,6 @@ export default function ReportsPage() {
     )
   }
 
-  // If viewing a specific detailed report
-  if (activeCandidate) {
-    return (
-      <CandidateReport
-        candidate={activeCandidate as any}
-        onBack={() => setActiveCandidate(null)}
-      />
-    )
-  }
-
   return (
     <div className="space-y-6 text-slate-900 dark:text-slate-100">
       
@@ -137,26 +133,26 @@ export default function ReportsPage() {
       </div>
 
       {/* Filter Action Strip */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm grid gap-4 grid-cols-1 sm:grid-cols-12 dark:bg-slate-900 transition-colors duration-300">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col lg:flex-row flex-wrap gap-4 items-center justify-between dark:bg-slate-900 transition-colors duration-300">
         
         {/* Search Input */}
-        <div className="relative sm:col-span-4">
+        <div className="relative w-full lg:w-64">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search candidate or role..."
-            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors"
+            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors"
           />
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
         </div>
 
         {/* Job Selection Dropdown */}
-        <div className="relative sm:col-span-3">
+        <div className="relative w-full lg:w-48">
           <select
             value={selectedJobId}
             onChange={(e) => setSelectedJobId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer"
           >
             <option value="all">All Jobs</option>
             {jobs.map((job) => (
@@ -165,33 +161,56 @@ export default function ReportsPage() {
           </select>
         </div>
 
-        {/* Score Range Dropdown */}
-        <div className="relative sm:col-span-2.5">
-          <select
-            value={selectedScoreRange}
-            onChange={(e) => setSelectedScoreRange(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
-          >
-            <option value="all">All Scores</option>
-            <option value="90+">Grade A (90%+)</option>
-            <option value="80-89">Grade B (80%-89%)</option>
-            <option value="70-79">Grade C (70%-79%)</option>
-            <option value="under-70">Fail (&lt;70%)</option>
-          </select>
-        </div>
-
         {/* Recommendation Dropdown */}
-        <div className="relative sm:col-span-2.5">
+        <div className="relative w-full lg:w-40">
           <select
             value={selectedRec}
             onChange={(e) => setSelectedRec(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer"
           >
-            <option value="all">All Actions</option>
+            <option value="all">All Recommendations</option>
             <option value="recommend">Recommend Hire</option>
             <option value="borderline">Borderline Fit</option>
             <option value="do_not_hire">Do Not Hire</option>
           </select>
+        </div>
+
+        {/* Score Range Slider */}
+        <div className="flex flex-col gap-1 w-full lg:w-48 px-1">
+          <div className="flex justify-between text-xs font-bold text-brand-muted-text">
+            <span>Min Score:</span>
+            <span className="text-brand-primary">{minScore}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={minScore}
+            onChange={(e) => setMinScore(Number(e.target.value))}
+            className="w-full accent-brand-primary cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none"
+          />
+        </div>
+
+        {/* Date Range Inputs */}
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-1.5 w-full">
+            <span className="text-xs text-brand-muted-text font-bold whitespace-nowrap">From:</span>
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={(e) => setStartDate(e.target.value)} 
+              className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer" 
+            />
+          </div>
+          <div className="flex items-center gap-1.5 w-full">
+            <span className="text-xs text-brand-muted-text font-bold whitespace-nowrap">To:</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)} 
+              className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer" 
+            />
+          </div>
         </div>
 
       </div>
@@ -221,7 +240,7 @@ export default function ReportsPage() {
                   <th className="p-4">Applied Job Role</th>
                   <th className="p-4 text-center">Score Grade</th>
                   <th className="p-4">Session Date</th>
-                  <th className="p-4">Integrity status</th>
+                  <th className="p-4">Integrity Status</th>
                   <th className="p-4 text-center">Action Recommendation</th>
                   <th className="p-4 pr-6 text-center">Actions</th>
                 </tr>
@@ -237,10 +256,10 @@ export default function ReportsPage() {
                   return (
                     <tr 
                       key={cand.id}
-                      onClick={() => setActiveCandidate(cand)}
+                      onClick={() => router.push(`/reports/${cand.id}`)}
                       className={cn(
                         "border-b border-border/30 hover:bg-slate-50/65 dark:hover:bg-slate-800/30 cursor-pointer transition-colors",
-                        index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/10" : ""
+                        index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/50" : ""
                       )}
                     >
                       {/* Name */}
@@ -267,9 +286,11 @@ export default function ReportsPage() {
                       </td>
                       
                       {/* Date */}
-                      <td className="p-4 text-brand-muted-text font-medium flex items-center gap-1 mt-1 border-none">
-                        <Calendar className="h-3.5 w-3.5 text-brand-muted-text" />
-                        {cand.date}
+                      <td className="p-4 text-brand-muted-text font-medium border-none">
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Calendar className="h-3.5 w-3.5 text-brand-muted-text" />
+                          {cand.date}
+                        </div>
                       </td>
                       
                       {/* Integrity */}
@@ -281,7 +302,7 @@ export default function ReportsPage() {
                         )}>
                           <span className={cn(
                             "h-1.5 w-1.5 rounded-full",
-                            cand.interviewStatus === "Completed" ? "bg-emerald-505" : "bg-rose-500"
+                            cand.interviewStatus === "Completed" ? "bg-emerald-500" : "bg-rose-500"
                           )} />
                           {cand.interviewStatus === "Completed" ? "Secure" : "Suspended"}
                         </span>

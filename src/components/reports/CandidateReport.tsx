@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { api, ApiCandidate, ApiReport } from "@/lib/api"
+import Link from "next/link"
 import { 
   ArrowLeft, 
   Download, 
@@ -31,6 +32,11 @@ interface CandidateReportProps {
 
 export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // React Query: fetch detailed scorecard report from Flask API
   const { 
@@ -42,6 +48,16 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
     queryFn: () => api.getReport(candidate.id),
     retry: 1
   })
+
+  // React Query: get jobs list to build breadcrumb navigation
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: api.getJobs,
+    retry: false
+  })
+
+  const matchedJob = jobs.find(j => j.id.toString() === candidate.jobId.toString())
+  const jobTitle = matchedJob ? matchedJob.title : candidate.role
 
   // Skeletons loader if loading report
   if (isLoading) {
@@ -102,10 +118,11 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
         integrity: "Suspended" as const,
         color: "text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30",
         logs: [
-          { time: "01:12", event: "Tab minimization detected (Attempt 1)", type: "warning" as const },
-          { time: "02:45", event: "Multiple faces detected in camera feed", type: "alert" as const },
-          { time: "03:10", event: "Mobile device detected in candidate's hand", type: "critical" as const },
-          { time: "03:12", event: "Session suspended automatically due to security violation", type: "system" as const }
+          { time: "00:00", event: "Session started", type: "system" as const },
+          { time: "02:34", event: "Multiple people detected (1 flag)", type: "warning" as const },
+          { time: "07:12", event: "Face not visible (2 flags)", type: "alert" as const },
+          { time: "18:45", event: "Phone detected (3 flags)", type: "critical" as const },
+          { time: "24:00", event: "Session completed", type: "system" as const }
         ]
       }
     } else if (candidate.score < 75) {
@@ -113,8 +130,10 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
         integrity: "Minor Violations" as const,
         color: "text-amber-500 bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30",
         logs: [
-          { time: "05:14", event: "Temporary loss of face visibility (12 seconds)", type: "warning" as const },
-          { time: "11:22", event: "Browser focus lost (tab switched)", type: "warning" as const }
+          { time: "00:00", event: "Session started", type: "system" as const },
+          { time: "05:14", event: "Temporary loss of face visibility (1 flag)", type: "warning" as const },
+          { time: "11:22", event: "Browser focus lost (tab switched) (2 flags)", type: "warning" as const },
+          { time: "20:00", event: "Session completed", type: "system" as const }
         ]
       }
     } else {
@@ -122,7 +141,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
         integrity: "Clean" as const,
         color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30",
         logs: [
-          { time: "00:00", event: "Webcam and microphone calibration verified", type: "info" as const },
+          { time: "00:00", event: "Session started", type: "system" as const },
           { time: "15:00", event: "Interview completed. No anomalies detected.", type: "info" as const }
         ]
       }
@@ -201,6 +220,19 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
   return (
     <div className="space-y-6 animate-fade-in text-slate-900 dark:text-slate-100">
       
+      {/* Breadcrumb Navigation Row */}
+      <nav className="text-xs font-semibold text-brand-muted-text flex flex-wrap items-center gap-1.5 py-1 select-none">
+        <Link href="/jobs" className="hover:text-brand-primary transition-colors">Jobs</Link>
+        <span>/</span>
+        <Link href={`/jobs/${candidate.jobId}`} className="hover:text-brand-primary transition-colors">{jobTitle}</Link>
+        <span>/</span>
+        <Link href="/candidates" className="hover:text-brand-primary transition-colors">Candidates</Link>
+        <span>/</span>
+        <span className="hover:text-brand-primary transition-colors">{candidate.name}</span>
+        <span>/</span>
+        <span className="text-foreground dark:text-white font-bold">Report</span>
+      </nav>
+
       {/* Back & Actions Navigation Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
         <button
@@ -236,17 +268,23 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
           {/* Card 1: Score Gauge and details */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm text-center flex flex-col items-center space-y-4 dark:bg-slate-900">
             
-            <div>
-              <p className="text-xs font-bold text-brand-muted-text uppercase tracking-wider">Candidate Scorecard</p>
-              <h2 className="text-xl font-extrabold tracking-tight mt-1">{candidate.name}</h2>
-              <p className="text-xs text-brand-muted-text">{candidate.role}</p>
+            <div className="flex flex-col items-center space-y-1.5">
+              <div className="h-12 w-12 rounded-full bg-brand-primary-bg dark:bg-slate-800 text-brand-primary dark:text-brand-primary-bg flex items-center justify-center text-sm font-black shadow-inner">
+                {candidate.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h2 className="text-xl font-extrabold tracking-tight mt-1">{candidate.name}</h2>
+                <p className="text-xs text-brand-muted-text">{candidate.email}</p>
+                <p className="text-xs text-brand-muted-text mt-0.5">Applied for: <span className="font-semibold text-slate-800 dark:text-slate-200">{jobTitle}</span></p>
+                <p className="text-[10px] text-brand-muted-text mt-0.5">Interview Date: {candidate.date}</p>
+              </div>
             </div>
 
             {/* Circular Gauge */}
             <div className="relative h-28 w-28 flex items-center justify-center">
               <svg className="h-full w-full -rotate-90">
                 <circle
-                  className="stroke-slate-100 dark:stroke-slate-800"
+                  className="stroke-slate-100 dark:stroke-slate-850"
                   strokeWidth="8"
                   fill="transparent"
                   r={radius}
@@ -254,12 +292,12 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
                   cy="56"
                 />
                 <circle
-                  className={cn(
-                    "transition-all duration-500",
-                    recommendation === "recommend" && "stroke-emerald-500",
-                    recommendation === "borderline" && "stroke-amber-500",
-                    recommendation === "do_not_hire" && "stroke-rose-500"
-                  )}
+                  className="transition-all duration-500"
+                  style={{
+                    stroke: recommendation === "recommend" ? "var(--color-brand-success)" :
+                            recommendation === "borderline" ? "var(--color-brand-warning)" :
+                            "var(--color-brand-danger)"
+                  }}
                   strokeWidth="8"
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
@@ -272,7 +310,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-black">{calculatedFinalScore}%</span>
-                <span className="text-[9px] text-brand-muted-text font-bold uppercase tracking-wider">Final Grade</span>
+                <span className="text-[9px] text-brand-muted-text font-bold uppercase tracking-wider">Final Score</span>
               </div>
             </div>
 
@@ -281,19 +319,19 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
               {recommendation === "recommend" && (
                 <span className="inline-flex items-center gap-1.5 justify-center w-full rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/30 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-4 w-4 fill-emerald-100 dark:fill-emerald-950" />
-                  RECOMMEND HIRE
+                  ✓ RECOMMEND HIRE
                 </span>
               )}
               {recommendation === "borderline" && (
                 <span className="inline-flex items-center gap-1.5 justify-center w-full rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/30 py-2 text-xs font-black text-amber-600 dark:text-amber-400">
                   <AlertTriangle className="h-4 w-4 fill-amber-100 dark:fill-amber-950" />
-                  BORDERLINE FIT
+                  ~ BORDERLINE FIT
                 </span>
               )}
               {recommendation === "do_not_hire" && (
                 <span className="inline-flex items-center gap-1.5 justify-center w-full rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/30 py-2 text-xs font-black text-brand-danger">
                   <XCircle className="h-4 w-4 fill-rose-100 dark:fill-rose-950" />
-                  DO NOT HIRE
+                  ✗ DO NOT HIRE
                 </span>
               )}
             </div>
@@ -378,40 +416,64 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
                   <span className="text-brand-primary">{resumeScore}%</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-brand-primary rounded-full" style={{ width: `${resumeScore}%` }} />
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out" 
+                    style={{ 
+                      width: isMounted ? `${resumeScore}%` : '0%', 
+                      backgroundColor: 'var(--color-brand-primary)' 
+                    }} 
+                  />
                 </div>
               </div>
 
               {/* Technical Grade */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-700 dark:text-slate-300">AI Technical Competence</span>
-                  <span className="text-purple-600 dark:text-purple-400">{technicalGrade}%</span>
+                  <span className="text-slate-700 dark:text-slate-300">Technical Grade</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{technicalGrade}%</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-600 rounded-full" style={{ width: `${technicalGrade}%` }} />
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out" 
+                    style={{ 
+                      width: isMounted ? `${technicalGrade}%` : '0%', 
+                      backgroundColor: 'var(--color-brand-success)' 
+                    }} 
+                  />
                 </div>
               </div>
 
               {/* Behavioral Grade */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-700 dark:text-slate-300">Communication & Behavioral</span>
-                  <span className="text-emerald-600 dark:text-emerald-400">{behavioralGrade}%</span>
+                  <span className="text-slate-700 dark:text-slate-300">Behavioral Grade</span>
+                  <span className="text-amber-500">{behavioralGrade}%</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${behavioralGrade}%` }} />
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out" 
+                    style={{ 
+                      width: isMounted ? `${behavioralGrade}%` : '0%', 
+                      backgroundColor: 'var(--color-brand-warning)' 
+                    }} 
+                  />
                 </div>
               </div>
 
-              {/* Weighted calculation */}
+              {/* Final Score */}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-700 dark:text-slate-300">Final Weighted Assessment</span>
-                  <span className="text-amber-500">{calculatedFinalScore}%</span>
+                  <span className="text-slate-700 dark:text-slate-300">Final Score</span>
+                  <span className="text-brand-primary font-extrabold">{calculatedFinalScore}%</span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 rounded-full" style={{ width: `${calculatedFinalScore}%` }} />
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out" 
+                    style={{ 
+                      width: isMounted ? `${calculatedFinalScore}%` : '0%', 
+                      backgroundColor: 'var(--color-brand-primary)' 
+                    }} 
+                  />
                 </div>
               </div>
             </div>
@@ -419,7 +481,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
             {/* Formula note */}
             <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-border text-[10px] text-brand-muted-text flex items-center gap-1.5 font-bold">
               <Percent className="h-3.5 w-3.5 text-brand-primary" />
-              <span>Weight Formula: Final = (Resume × 0.3) + (Technical × 0.5) + (Behavioral × 0.2)</span>
+              <span>Final = (Resume Match × 0.3) + (Technical × 0.5) + (Behavioral × 0.2)</span>
             </div>
 
           </div>
@@ -427,7 +489,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
           {/* Section 2: AI Executive Summary */}
           <div className="rounded-xl border border-border bg-card p-5 md:p-6 shadow-sm space-y-4 dark:bg-slate-900">
             <h3 className="text-sm font-bold uppercase tracking-wider text-brand-muted-text flex items-center gap-2">
-              <Bot className="h-4.5 w-4.5 text-brand-primary" /> AI Executive Summary
+              <Bot className="h-4.5 w-4.5 text-brand-primary" /> AI Summary
             </h3>
 
             <div className="p-4 bg-brand-primary-bg/50 dark:bg-slate-950 border border-brand-primary/10 rounded-xl text-xs md:text-sm leading-relaxed space-y-2">
@@ -442,7 +504,7 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
             <div className="p-5 border-b border-border/40 flex items-center gap-2">
               <FileText className="h-4.5 w-4.5 text-brand-muted-text" />
               <h3 className="text-sm font-bold uppercase tracking-wider text-brand-muted-text">
-                Question-by-Question Breakdown
+                Q&A Breakdown
               </h3>
             </div>
 
@@ -466,14 +528,23 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
                         <tr 
                           onClick={() => setExpandedRow(isExpanded ? null : index)}
                           className={cn(
-                            "border-b border-border/30 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors",
-                            index % 2 === 1 ? "bg-slate-50/30 dark:bg-slate-800/10" : ""
+                            "border-b border-border/30 hover:bg-slate-50/50 dark:hover:bg-slate-850/40 cursor-pointer transition-colors",
+                            index % 2 === 1 ? "bg-slate-50/30 dark:bg-slate-800/50" : ""
                           )}
                         >
                           <td className="p-3 font-semibold text-center text-brand-muted-text">{index + 1}</td>
                           <td className="p-3 font-bold truncate max-w-[200px]">{qa.question}</td>
                           <td className="p-3 text-brand-muted-text truncate max-w-[200px] hidden sm:table-cell">{qa.answer}</td>
-                          <td className="p-3 text-center font-extrabold text-brand-primary">{qa.score}%</td>
+                          <td className="p-3 text-center">
+                            <span className={cn(
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-extrabold",
+                              qa.score >= 85 ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" :
+                              qa.score >= 70 ? "text-amber-600 bg-amber-50 dark:bg-amber-950/20" :
+                              "text-rose-600 bg-rose-50 dark:bg-rose-950/20"
+                            )}>
+                              {qa.score}%
+                            </span>
+                          </td>
                           <td className="p-3 text-center">
                             <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-muted-text">
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -486,15 +557,21 @@ export function CandidateReport({ candidate, onBack }: CandidateReportProps) {
                           <tr className="bg-slate-50/40 dark:bg-slate-950/40 border-b border-border/30">
                             <td colSpan={5} className="p-4 space-y-3.5">
                               <div className="space-y-1.5">
-                                <span className="text-[10px] font-bold text-brand-muted-text uppercase tracking-wider block">Full Candidate Answer:</span>
-                                <p className="bg-white dark:bg-slate-900 border border-border/80 p-3 rounded-lg text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
-                                  {qa.answer}
+                                <span className="text-[10px] font-bold text-brand-muted-text uppercase tracking-wider block">Full Question Text:</span>
+                                <p className="text-slate-800 dark:text-slate-200 font-bold leading-relaxed">
+                                  {qa.question}
                                 </p>
+                              </div>
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] font-bold text-brand-muted-text uppercase tracking-wider block">Candidate&apos;s Answer:</span>
+                                <blockquote className="border-l-4 border-brand-primary/40 bg-white dark:bg-slate-900 pl-4 py-2 pr-2 rounded-r-lg text-slate-800 dark:text-slate-200 italic leading-relaxed">
+                                  &ldquo;{qa.answer}&rdquo;
+                                </blockquote>
                               </div>
 
                               <div className="space-y-1.5">
                                 <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider block flex items-center gap-1">
-                                  <Bot className="h-3.5 w-3.5" /> AI Evaluation Feedback:
+                                  <Bot className="h-3.5 w-3.5" /> AI Written Feedback:
                                 </span>
                                 <div className="bg-brand-primary-bg/30 dark:bg-slate-900 border border-brand-primary/10 p-3 rounded-lg text-slate-700 dark:text-slate-300">
                                   {qa.feedback}

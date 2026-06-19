@@ -72,7 +72,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. John Doe"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600"
             />
           </div>
 
@@ -82,7 +82,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
             <select
               value={jobId}
               onChange={(e) => setJobId(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none font-medium"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none font-medium dark:bg-slate-800 dark:border-slate-600"
             >
               {MOCK_JOBS.map((job) => (
                 <option key={job.id} value={job.id}>
@@ -101,7 +101,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="john.doe@example.com"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600"
             />
           </div>
 
@@ -113,7 +113,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 555 000 0000"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600"
             />
           </div>
 
@@ -127,7 +127,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
                 max="100"
                 value={score}
                 onChange={(e) => setScore(Number(e.target.value))}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600"
               />
             </div>
 
@@ -139,7 +139,7 @@ export function AddCandidateModal({ open, onOpenChange, onAdd }: AddCandidateMod
                 value={skills}
                 onChange={(e) => setSkills(e.target.value)}
                 placeholder="React, AWS"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600"
               />
             </div>
           </div>

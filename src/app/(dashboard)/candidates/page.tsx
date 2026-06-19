@@ -5,6 +5,7 @@ import { DndContext, DragEndEvent } from "@dnd-kit/core"
 import { useDroppable } from "@dnd-kit/core"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api, ApiCandidate } from "@/lib/api"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CandidateCard } from "@/components/candidates/CandidateCard"
@@ -85,6 +86,7 @@ function KanbanColumn({ id, title, colorClass, headerColorClass, count, children
 }
 
 export default function CandidatesPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [selectedJobId, setSelectedJobId] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -101,13 +103,25 @@ export default function CandidatesPage() {
   const { data: candidates = [], isLoading, isError } = useQuery({
     queryKey: ["candidates", selectedJobId],
     queryFn: () => api.getCandidates(selectedJobId === "all" ? undefined : selectedJobId),
+    retry: false
   })
 
   // React Query: Get jobs list for dropdown filter
-  const { data: jobs = [] } = useQuery({
+  const { data: jobs = [], isError: isJobsError } = useQuery({
     queryKey: ["jobs"],
     queryFn: api.getJobs,
+    retry: false
   })
+
+  // Alert on lookup connection error
+  React.useEffect(() => {
+    if (isError || isJobsError) {
+      toast.error("Failed to connect to Flask API server.", {
+        description: "Verify that your Flask backend is running on http://localhost:5000"
+      })
+    }
+  }, [isError, isJobsError])
+
 
   // Mutations
   const moveStageMutation = useMutation({
@@ -152,7 +166,7 @@ export default function CandidatesPage() {
     const targetCand = candidates.find(c => c.id.toString() === candidateId.toString())
     if (targetCand && targetCand.stage !== targetStage) {
       if (targetStage === "Interview") {
-        setConfiguringCandidate(targetCand)
+        router.push(`/interviews/configure/${targetCand.id}`)
       } else {
         moveStageMutation.mutate({ id: candidateId, stage: targetStage })
       }
@@ -164,7 +178,7 @@ export default function CandidatesPage() {
     const targetCand = candidates.find(c => c.id.toString() === id.toString())
     if (targetCand) {
       setIsDetailOpen(false)
-      setConfiguringCandidate(targetCand)
+      router.push(`/interviews/configure/${targetCand.id}`)
     }
   }
 
@@ -180,7 +194,7 @@ export default function CandidatesPage() {
       const targetCand = candidates.find(c => c.id.toString() === id.toString())
       if (targetCand) {
         setIsDetailOpen(false)
-        setConfiguringCandidate(targetCand)
+        router.push(`/interviews/configure/${targetCand.id}`)
       }
     } else {
       moveStageMutation.mutate({ id, stage })
@@ -297,7 +311,7 @@ export default function CandidatesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search candidate by name..."
-              className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950"
+              className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors"
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
           </div>
@@ -412,7 +426,7 @@ export default function CandidatesPage() {
                     key={cand.id} 
                     className={cn(
                       "hover:bg-accent/10 transition-colors cursor-pointer",
-                      index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                      index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/50" : ""
                     )}
                     onClick={() => viewDetail(cand)}
                   >
@@ -469,23 +483,7 @@ export default function CandidatesPage() {
         onMoveStage={handleMoveStage as any}
       />
 
-      {/* Configure Interview Modal */}
-      <ConfigureInterviewModal
-        candidate={configuringCandidate}
-        open={configuringCandidate !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfiguringCandidate(null)
-        }}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["candidates"] })
-          queryClient.invalidateQueries({ queryKey: ["dashboardStats"] })
-          if (configuringCandidate) {
-            // Also move their stage visually
-            moveStageMutation.mutate({ id: configuringCandidate.id, stage: "Interview" })
-          }
-          setConfiguringCandidate(null)
-        }}
-      />
+
 
     </div>
   )

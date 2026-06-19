@@ -162,14 +162,9 @@ export function ConfigureInterviewModal({
       } else {
         throw new Error("No token returned")
       }
-    } catch (err) {
-      console.warn("Simulating interview scheduling locally (Flask server offline):")
-      // Offline simulation fallback
-      const token = `token-${candidate.id}-${Math.random().toString(36).substr(2, 9)}`
-      const link = `${window.location.origin}/interview/${token}`
-      setCreatedToken(token)
-      setCreatedLink(link)
-      toast.info("Offline Mode: Mock interview link generated.")
+    } catch (err: any) {
+      console.error("Failed to configure interview invitation:", err)
+      toast.error(err.message || "Failed to configure interview invitation.")
     } finally {
       setIsSubmitting(false)
     }

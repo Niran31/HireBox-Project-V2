@@ -59,14 +59,19 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (isAnalyticsError) {
-      toast.error("Failed to connect to Flask API server. Using mock fallback details.", {
+      toast.error("Failed to connect to Flask API server.", {
         description: "Verify that your Flask backend is running on http://localhost:5000"
       })
     }
   }, [isAnalyticsError])
 
-  const isLoading = isAnalyticsLoading && !isAnalyticsError
-  const displayData = analytics || MOCK_ANALYTICS
+  const isLoading = isAnalyticsLoading
+  const displayData = analytics || {
+    dropOffFunnel: [],
+    scoreDistribution: [],
+    integrityBreakdown: [],
+    departmentAverages: []
+  }
 
   if (isLoading) {
     return (

@@ -39,6 +39,7 @@ export interface ApiCandidate {
   email: string
   phone: string
   skills: string[]
+  processing_status?: "pending" | "processing" | "completed" | "failed"
 }
 
 export interface ApiDashboardStats {
@@ -113,7 +114,9 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   const url = `${API_BASE_URL}${endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`}`
   
   const headers = new Headers(options.headers)
-  headers.set("Content-Type", "application/json")
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json")
+  }
   
   // Inject JWT authorization token if available
   const token = typeof window !== "undefined" ? localStorage.getItem("hirebox_token") : null
@@ -129,6 +132,16 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   try {
     const response = await fetch(url, config)
     
+    // Handle expired JWT — clear stale tokens and redirect to login
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("hirebox_token")
+      // Clear the httpOnly cookie via logout proxy so middleware also redirects
+      try { await fetch("/api/logout", { method: "POST" }) } catch {}
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`
+      // Return a never-resolving promise so callers don't process stale data
+      return new Promise(() => {})
+    }
+
     if (!response.ok) {
       let errorMessage = "An error occurred while connecting to the server."
       try {
@@ -248,6 +261,18 @@ export const api = {
     return fetchAPI<{ success: boolean; token: string; interviewLink: string }>(`/interviews/create/${candidateId}`, {
       method: "POST",
       body: JSON.stringify(payload),
+    })
+  },
+
+  // Upload resumes (multipart form-data)
+  uploadResumes: (jobId: string | number, files: File[]) => {
+    const formData = new FormData()
+    files.forEach(file => {
+      formData.append("resumes", file)
+    })
+    return fetchAPI<ApiCandidate[]>(`/dashboard/upload_candidates/${jobId}`, {
+      method: "POST",
+      body: formData,
     })
   }
 }

@@ -1,4 +1,10 @@
 import React from "react"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "HireBox AI — Interview Session",
+  description: "AI-proctored candidate screening exam portal. Complete your interview questions within the time limit.",
+}
 
 export default function InterviewLayout({
   children,

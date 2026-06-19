@@ -138,23 +138,30 @@ export default function InterviewsPage() {
 
   useEffect(() => {
     if (isInterviewsError) {
-      toast.error("Failed to connect to Flask API server. Using mock fallback details.", {
+      toast.error("Failed to connect to Flask API server.", {
         description: "Verify that your Flask backend is running on http://localhost:5000"
       })
     }
   }, [isInterviewsError])
 
-  const isLoading = isInterviewsLoading && !isInterviewsError
+  const isLoading = isInterviewsLoading
 
-  // Fallbacks
-  const displayInterviews = interviews && interviews.length > 0 ? interviews : MOCK_INTERVIEWS
-  const displayJobs = jobs && jobs.length > 0 ? jobs : MOCK_JOBS
+  // Real data mappings (no mock fallbacks)
+  const displayInterviews = interviews || []
+  const displayJobs = jobs || []
 
   // Compute stats
   const totalCount = displayInterviews.length
-  const completedCount = displayInterviews.filter(i => i.status === "Completed").length
-  const activeCount = displayInterviews.filter(i => i.status === "In Progress").length
-  const flaggedCount = displayInterviews.filter(i => i.status === "Suspended" || (i.proctorFlagsCount && i.proctorFlagsCount > 0)).length
+  const completedCount = displayInterviews.filter(i => (i.status as string).toLowerCase() === "completed").length
+  const activeCount = displayInterviews.filter(i => {
+    const s = (i.status as string).toLowerCase()
+    return s === "in progress" || s === "started"
+  }).length
+  const flaggedCount = displayInterviews.filter(i => {
+    const s = (i.status as string).toLowerCase()
+    return s === "suspended" || (i.proctorFlagsCount && i.proctorFlagsCount > 0)
+  }).length
+
 
   // Filter list
   const filteredInterviews = displayInterviews.filter(i => {
@@ -274,7 +281,7 @@ export default function InterviewsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search candidate or job role..."
-            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors"
+            className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors"
           />
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
         </div>
@@ -284,7 +291,7 @@ export default function InterviewsPage() {
           <select
             value={selectedJobId}
             onChange={(e) => setSelectedJobId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer"
           >
             <option value="all">All Jobs</option>
             {displayJobs.map(job => (
@@ -298,7 +305,7 @@ export default function InterviewsPage() {
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950 transition-colors cursor-pointer"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="Pending">Pending Invitation</option>
@@ -340,7 +347,7 @@ export default function InterviewsPage() {
                       key={interview.id}
                       className={cn(
                         "border-b border-border/30 hover:bg-slate-50/65 dark:hover:bg-slate-800/30 transition-colors",
-                        index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/10" : ""
+                        index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/50" : ""
                       )}
                     >
                       {/* Name */}

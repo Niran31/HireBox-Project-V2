@@ -34,9 +34,9 @@ import {
   AlertTriangle,
   FileCheck
 } from "lucide-react"
-import { ConfigureInterviewModal } from "@/components/candidates/ConfigureInterviewModal"
 import { CreateJobModal } from "@/components/jobs/CreateJobModal"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface JobDetailPageProps {
   params: Promise<{ jobId: string }> | { jobId: string }
@@ -53,6 +53,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   const resolvedParams = params instanceof Promise ? use(params) : params
   const jobId = resolvedParams?.jobId
 
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<"candidates" | "details">("candidates")
   const [searchQuery, setSearchQuery] = useState("")
@@ -78,8 +79,40 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   const { data: candidates = [], isLoading: isCandidatesLoading } = useQuery({
     queryKey: ["candidates", jobId],
     queryFn: () => api.getCandidates(jobId),
-    retry: false
+    retry: false,
+    refetchInterval: (query) => {
+      const currentCandidates = query.state.data as ApiCandidate[] | undefined
+      const hasProcessing = currentCandidates?.some(
+        c => c.processing_status === 'pending' || c.processing_status === 'processing'
+      )
+      return hasProcessing ? 2000 : false
+    }
   })
+
+  // Mutation for uploading files to backend
+  const uploadMutation = useMutation({
+    mutationFn: (files: File[]) => api.uploadResumes(jobId!, files),
+    onMutate: (files) => {
+      const newItems: UploadQueueItem[] = files.map((file, idx) => ({
+        id: `upload-${Date.now()}-${idx}`,
+        filename: file.name,
+        status: "Parsing..."
+      }))
+      setUploadQueue(newItems)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candidates", jobId] })
+      toast.success("Resumes uploaded successfully. Parsing in the background!")
+      setTimeout(() => {
+        setUploadQueue([])
+      }, 3000)
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to upload resumes.")
+      setUploadQueue([])
+    }
+  })
+
 
   // Mutation: update job status (Active/Closed)
   const updateStatusMutation = useMutation({
@@ -111,23 +144,17 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   // Alert on lookup connection error
   useEffect(() => {
     if (isJobsError) {
-      toast.error("Failed to connect to Flask API server. Using mock fallback details.", {
+      toast.error("Failed to connect to Flask API server.", {
         description: "Verify that your Flask backend is running on http://localhost:5000"
       })
     }
   }, [isJobsError])
 
-  const isLoading = (isJobsLoading || isCandidatesLoading) && !isJobsError
+  const isLoading = isJobsLoading || isCandidatesLoading
 
-  // Fallbacks
-  const currentJob = (jobs.find(j => j.id.toString() === jobId?.toString()) || 
-                     MOCK_JOBS.find(j => j.id.toString() === jobId?.toString())) as ApiJob | undefined
-
-  const baseCandidates = candidates && candidates.length > 0 
-    ? candidates 
-    : MOCK_CANDIDATES.filter(c => c.jobId.toString() === jobId?.toString())
-
-  const displayCandidates = [...baseCandidates, ...localAddedCandidates]
+  // Real data mappings (no mock fallbacks)
+  const currentJob = jobs.find(j => j.id.toString() === jobId?.toString())
+  const displayCandidates = candidates || []
 
   if (isLoading || !currentJob) {
     return (
@@ -151,65 +178,11 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     updateStatusMutation.mutate({ id: currentJob.id, status: nextStatus })
   }
 
-  // Simulate file drop uploads
+  // Real file drop uploads
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-
-    const newItems: UploadQueueItem[] = Array.from(files).map((file, idx) => ({
-      id: `upload-${Date.now()}-${idx}`,
-      filename: file.name,
-      status: "Parsing..."
-    }))
-
-    setUploadQueue(prev => [...prev, ...newItems])
-
-    // Process each upload sequentially with simulation delay
-    newItems.forEach((item, idx) => {
-      setTimeout(() => {
-        // Step 1: Parsing completes, start scoring
-        setUploadQueue(prev =>
-          prev.map(q => (q.id === item.id ? { ...q, status: "Parsing..." } : q))
-        )
-
-        // Step 2: Scoring completes
-        setTimeout(() => {
-          const generatedScore = Math.floor(Math.random() * 45) + 55 // score 55-99
-          setUploadQueue(prev =>
-            prev.map(q =>
-              q.id === item.id ? { ...q, status: "Ranked ✓", score: generatedScore } : q
-            )
-          )
-
-          // Add to local candidates list
-          const namePrefix = item.filename.split(".")[0].replace(/[-_]/g, " ")
-          const capitalizedName = namePrefix.replace(/\b\w/g, c => c.toUpperCase())
-          
-          const newCand: ApiCandidate = {
-            id: `cand-local-${Date.now()}-${idx}`,
-            jobId: currentJob.id,
-            name: capitalizedName,
-            role: currentJob.title,
-            score: generatedScore,
-            stage: "Screened",
-            date: new Date().toISOString().split("T")[0],
-            status: generatedScore >= 80 ? "Strong Hire" : generatedScore >= 65 ? "Consider" : "Not Recommended",
-            interviewStatus: "Pending",
-            email: `${namePrefix.toLowerCase().replace(/\s/g, ".")}@example.com`,
-            phone: "+1 555 019 9900",
-            skills: currentJob.requiredSkills || ["JavaScript", "React", "Node.js"]
-          }
-
-          setLocalAddedCandidates(prev => [...prev, newCand])
-
-          // Clean queue logs slowly
-          setTimeout(() => {
-            setUploadQueue(prev => prev.filter(q => q.id !== item.id))
-          }, 3000)
-
-        }, 2000)
-      }, idx * 1500)
-    })
+    uploadMutation.mutate(Array.from(files))
   }
 
   // Filtering & Sorting candidate cards
@@ -413,7 +386,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search candidate by name..."
-                  className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-950"
+                  className="w-full rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none dark:bg-slate-800 dark:border-slate-600 transition-colors"
                 />
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-brand-muted-text" />
               </div>
@@ -422,7 +395,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none cursor-pointer dark:bg-slate-950"
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-brand-primary focus:ring-1 focus:ring-brand-primary outline-none cursor-pointer dark:bg-slate-800 dark:border-slate-600 transition-colors"
               >
                 <option value="all">All Candidates</option>
                 <option value="Pending">Pending Invite</option>
@@ -562,7 +535,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                         </span>
                       ) : (
                         <button
-                          onClick={() => setConfiguringCandidate(cand)}
+                          onClick={() => router.push(`/interviews/configure/${cand.id}`)}
                           className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-primary hover:underline border-none bg-transparent cursor-pointer"
                         >
                           <Mail className="h-3.5 w-3.5" /> Configure Invite
@@ -676,29 +649,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
         </div>
       )}
 
-      {/* Configure Interview invitation scheduler dialog */}
-      <ConfigureInterviewModal
-        candidate={configuringCandidate}
-        open={configuringCandidate !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfiguringCandidate(null)
-        }}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["candidates"] })
-          queryClient.invalidateQueries({ queryKey: ["jobs"] })
-          if (configuringCandidate) {
-            // Locally update the interviewStatus and stage to simulate changes immediately
-            setLocalAddedCandidates(prev =>
-              prev.map(c =>
-                c.id.toString() === configuringCandidate.id.toString()
-                  ? { ...c, interviewStatus: "Pending", stage: "Interview" }
-                  : c
-              )
-            )
-          }
-          setConfiguringCandidate(null)
-        }}
-      />
+
 
       {/* Edit Job Modal Form */}
       <CreateJobModal

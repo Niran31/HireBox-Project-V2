@@ -8,13 +8,13 @@ import { ExamScreen } from "@/components/interview/ExamScreen"
 import { CompletionScreen } from "@/components/interview/CompletionScreen"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
+import { AlertTriangle } from "lucide-react"
 
 interface InterviewPageProps {
   params: Promise<{ token: string }> | { token: string }
 }
 
 export default function InterviewPage({ params }: InterviewPageProps) {
-  // Safe resolution of params for both Next.js 14 and Next.js 15+ (Promise)
   const resolvedParams = params instanceof Promise ? use(params) : params
   const token = resolvedParams?.token
 
@@ -70,71 +70,99 @@ export default function InterviewPage({ params }: InterviewPageProps) {
     setScreen("exam")
   }
 
-  const handleSubmitExam = (answers: Record<number, string>) => {
+  // Handle submission and call complete interview endpoint
+  const handleSubmitExam = async (answers: Record<number, string>, proctorLog?: any[]) => {
     // Stop camera immediately to turn off webcam indicator light
     if (mediaStream) {
       mediaStream.getTracks().forEach((track) => track.stop())
       setMediaStream(null)
     }
 
-    // Submit answers and dummy proctor log via mutation
-    submitAnswersMutation.mutate({ 
-      answers, 
-      proctorLog: [
-        { time: "00:00", event: "Webcam stream calibration verified", type: "info" }
-      ]
-    })
+    try {
+      // 1. Submit answers to Flask API
+      await submitAnswersMutation.mutateAsync({
+        answers,
+        proctorLog: proctorLog || [
+          { time: "00:00", event: "Webcam stream calibration verified", type: "info" }
+        ]
+      })
+
+      // 2. Complete interview session (calls Flask complete api)
+      await fetch("http://localhost:5000/api/interview/api/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, status: "completed" })
+      })
+
+      setScreen("completed")
+    } catch (err) {
+      console.error("Submission failed:", err)
+      toast.error("Failed to submit exam. Please try again.")
+    }
   }
 
   // Pre-exam page loading skeleton
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 min-h-screen">
-        <div className="max-w-4xl w-full bg-white dark:bg-slate-900 border border-border rounded-2xl shadow-xl p-8 grid md:grid-cols-12 gap-8">
-          <div className="md:col-span-7 space-y-6">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-64 w-full rounded-xl" />
-            <Skeleton className="h-12 w-full rounded-lg" />
+        <div className="max-w-lg w-full space-y-6">
+          <div className="flex items-center gap-2 justify-center">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-6 w-28" />
           </div>
-          <div className="md:col-span-5 space-y-6">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
+          <Skeleton className="h-[500px] w-full rounded-2xl" />
         </div>
       </div>
     )
   }
 
-  // Default candidate specifications (with dynamic fallback)
-  const candidateName = session ? session.candidateName : "Jane Doe"
-  const role = session ? session.role : "Senior Fullstack Engineer"
-  const company = session ? session.company : "HireBox AI"
-  const timeLimit = session ? session.timeLimit : 15
+  // Error screen for invalid/expired tokens
+  if (isError || !session) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 min-h-screen">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-border p-8 rounded-2xl shadow-xl text-center space-y-4">
+          <div className="h-12 w-12 rounded-full bg-rose-50 dark:bg-rose-950/20 text-rose-500 flex items-center justify-center border border-rose-100 dark:border-rose-900/30 mx-auto">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Invalid or Expired Link</h3>
+          <p className="text-sm text-brand-muted-text">
+            This interview session link is invalid, has expired, or has already been completed. Please contact your hiring recruiter to request a new link.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const { candidateName, role, company, timeLimit, questions, proctoringEnabled } = session
 
   return (
     <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen">
       {screen === "pre-exam" && (
-        <PreExamScreen 
-          role={role} 
-          company={company} 
-          onStart={handleStartExam} 
+        <PreExamScreen
+          role={role}
+          company={company}
+          questionCount={questions?.length || 5}
+          timeLimit={timeLimit}
+          proctoringEnabled={proctoringEnabled}
+          onStart={handleStartExam}
         />
       )}
-      
+
       {screen === "exam" && (
         <ExamScreen
           candidateName={candidateName}
           role={role}
           timeLimit={timeLimit}
+          questions={questions}
           mediaStream={mediaStream}
           onSubmit={handleSubmitExam}
         />
       )}
 
       {screen === "completed" && (
-        <CompletionScreen />
+        <CompletionScreen candidateName={candidateName} />
       )}
     </div>
   )
 }
+

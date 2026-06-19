@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useDashboard } from "@/components/providers/DashboardProvider"
+import { api } from "@/lib/api"
 import {
   Tooltip,
   TooltipContent,
@@ -64,7 +65,20 @@ function SidebarItem({ icon: Icon, label, href, active, collapsed }: SidebarItem
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { isCollapsed, setIsCollapsed } = useDashboard()
+
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/logout", { method: "POST" })
+    } catch (e) {
+      console.error("Logout cookie clear failed:", e)
+    }
+    api.clearToken()
+    router.push("/login")
+    router.refresh()
+  }
 
   const collapsed = mobile ? false : isCollapsed
 
@@ -181,7 +195,8 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
 
           {!collapsed && (
             <button 
-              className="p-1.5 text-brand-muted-text hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+              onClick={handleLogout}
+              className="p-1.5 text-brand-muted-text hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />

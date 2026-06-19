@@ -107,27 +107,26 @@ export default function DashboardPage() {
   // Toast notifications for connection errors
   useEffect(() => {
     if (isStatsError) {
-      toast.error("Failed to connect to Flask API server. Using mock fallback details.", {
+      toast.error("Failed to connect to Flask API server.", {
         description: "Verify that your Flask backend is running on http://localhost:5000",
       })
     }
   }, [isStatsError])
 
-  // Only show loading skeleton if we are actively fetching and don't have an error fallback ready
-  const isLoading = (isStatsLoading || isCandidatesLoading || isJobsLoading) && !isStatsError
+  const isLoading = isStatsLoading || isCandidatesLoading || isJobsLoading
 
-  // Fallback data mapping if Flask is down
-  const displayJobs = jobs && jobs.length > 0 ? jobs : MOCK_JOBS
-  const displayCandidates = candidates && candidates.length > 0 ? candidates : MOCK_CANDIDATES
-  const displayActivities = stats && stats.recentActivities ? stats.recentActivities : MOCK_ACTIVITIES
-  const displayPipeline = stats && stats.pipeline ? stats.pipeline : MOCK_PIPELINE
+  // Real data mappings (no mock fallbacks)
+  const displayJobs = jobs || []
+  const displayCandidates = candidates || []
+  const displayActivities = stats?.recentActivities || []
+  const displayPipeline = stats?.pipeline || []
 
-  // Map stats dynamically, with mock fallback if backend is down
-  const statsList = stats ? [
+  // Map stats dynamically
+  const statsList = [
     {
       id: "active-jobs",
       label: "Active Jobs",
-      value: stats.activeJobs,
+      value: stats?.activeJobs ?? 0,
       trend: "Positions actively hiring",
       icon: "Briefcase",
       color: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/45",
@@ -135,56 +134,23 @@ export default function DashboardPage() {
     {
       id: "total-candidates",
       label: "Total Candidates",
-      value: stats.totalCandidates,
+      value: stats?.totalCandidates ?? 0,
       trend: "Across all active openings",
       icon: "Users",
       color: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/45",
     },
     {
       id: "interviews-today",
-      label: "Interviews Completed",
-      value: stats.interviewsToday,
-      trend: "Completed AI sessions",
+      label: "Interviews Today",
+      value: stats?.interviewsToday ?? 0,
+      trend: "Sessions scheduled/started today",
       icon: "Video",
       color: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/45",
     },
     {
       id: "avg-hire-score",
       label: "Avg. Screening Score",
-      value: stats.avgHireScore,
-      trend: "AI scorecard average",
-      icon: "TrendingUp",
-      color: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/45",
-    },
-  ] : [
-    {
-      id: "active-jobs",
-      label: "Active Jobs",
-      value: MOCK_JOBS.filter(j => j.status === "Active").length,
-      trend: "Positions actively hiring",
-      icon: "Briefcase",
-      color: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/45",
-    },
-    {
-      id: "total-candidates",
-      label: "Total Candidates",
-      value: MOCK_CANDIDATES.length,
-      trend: "Across all active openings",
-      icon: "Users",
-      color: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/45",
-    },
-    {
-      id: "interviews-today",
-      label: "Interviews Completed",
-      value: MOCK_CANDIDATES.filter(c => c.interviewStatus === "Completed").length,
-      trend: "Completed AI sessions",
-      icon: "Video",
-      color: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/45",
-    },
-    {
-      id: "avg-hire-score",
-      label: "Avg. Screening Score",
-      value: "84%",
+      value: stats?.avgHireScore ?? "N/A",
       trend: "AI scorecard average",
       icon: "TrendingUp",
       color: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/45",
@@ -195,6 +161,7 @@ export default function DashboardPage() {
   const filteredCandidates = activeStage
     ? displayCandidates.filter(c => c.stage === activeStage)
     : []
+
 
   // Loading Screen Skeleton Layout
   if (isLoading) {
@@ -356,7 +323,7 @@ export default function DashboardPage() {
                           key={cand.id} 
                           className={cn(
                             "hover:bg-accent/10 transition-colors",
-                            index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                            index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/50" : ""
                           )}
                         >
                           <td className="py-3.5 font-semibold">{cand.name}</td>
@@ -397,7 +364,7 @@ export default function DashboardPage() {
                         key={job.id} 
                         className={cn(
                           "hover:bg-accent/10 transition-colors",
-                          index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/20" : ""
+                          index % 2 === 1 ? "bg-slate-50/20 dark:bg-slate-800/50" : ""
                         )}
                       >
                         <td className="py-3.5 font-semibold text-foreground">{job.title}</td>
